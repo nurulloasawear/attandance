@@ -1,44 +1,147 @@
 package com.attendance.userservice.service;
 
-import com.attendance.commonlib.exception.ResourceNotFoundException;
-import com.attendance.userservice.dto.AuthResponse;
+import com.attendance.userservice.dto.AuthResponseDto;
+import com.attendance.userservice.dto.LoginRequest;
+import com.attendance.userservice.dto.RefreshRequest;
+import com.attendance.userservice.dto.RegisterRequest;
+import com.attendance.userservice.model.RefreshToken;
 import com.attendance.userservice.model.User;
+import com.attendance.userservice.repository.RefreshTokenRepository;
 import com.attendance.userservice.repository.UserRepository;
-import com.attendance.userservice.security.JwtUtil;
+import com.attendance.userservice.security.JwtService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
+    private final JwtService jwtService;
 
-    public AuthResponse login(String username, String password) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+    @Value("${security.jwt.refresh-expiration-ms}")
+    private long refreshExpMs;
 
-        if (!user.isActive()) {
-            throw new IllegalStateException("User is inactive");
+    @Transactional
+    public void register(RegisterRequest req) {
+        if (userRepository.existsByUsername(req.username())) {
+            throw new IllegalStateException("Username already exists");
+        }
+        if (userRepository.existsByEmail(req.email())) {
+            throw new IllegalStateException("Email already exists");
         }
 
-        if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new IllegalStateException("Invalid username or password");
+        User user = User.builder()
+                .username(req.username())
+                .email(req.email())
+                .password(passwordEncoder.encode(req.password()))
+                .firstName(req.firstName())
+                .lastName(req.lastName())
+                .role("ROLE_EMPLOYEE")
+                .active(true)
+                .build();
+
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public AuthResponseDto  login(LoginRequest req) {
+        User user = userRepository.findByUsername(req.username())
+                .orElseThrow(() -> new IllegalStateException("Invalid credentials"));
+
+        if (!user.isActive() || !passwordEncoder.matches(req.password(), user.getPassword())) {
+            throw new IllegalStateException("Invalid credentials");
         }
 
-        String token = jwtUtil.generateToken(
+        String access = generateAccess(user);
+        String refreshRaw = generateRefreshRaw();
+
+        saveRefreshToken(user, refreshRaw);
+
+        return new AuthResponseDto(access, refreshRaw, "Bearer");
+    }
+
+    @Transactional
+    public AuthResponseDto refresh(RefreshRequest req) {
+        String oldHash = sha256(req.refreshToken());
+
+        RefreshToken old = refreshTokenRepository.findByTokenHash(oldHash)
+                .orElseThrow(() -> new IllegalStateException("Invalid refresh token"));
+
+        if (old.isRevoked() || old.getExpiresAt().isBefore(Instant.now())) {
+            throw new IllegalStateException("Invalid refresh token");
+        }
+
+        User user = old.getUser();
+        if (user == null || !user.isActive()) {
+            throw new IllegalStateException("Invalid refresh token");
+        }
+
+        old.setRevoked(true);
+        refreshTokenRepository.save(old);
+
+        String access = generateAccess(user);
+        String refreshRaw = generateRefreshRaw();
+
+        saveRefreshToken(user, refreshRaw);
+
+        return new AuthResponseDto(access, refreshRaw, "Bearer");
+    }
+
+    @Transactional
+    public void logout(RefreshRequest req) {
+        String hash = sha256(req.refreshToken());
+        refreshTokenRepository.findByTokenHash(hash).ifPresent(rt -> {
+            rt.setRevoked(true);
+            refreshTokenRepository.save(rt);
+        });
+    }
+
+    private String generateAccess(User user) {
+        return jwtService.generateAccessToken(
                 user.getUsername(),
                 Map.of(
-                        "userId", user.getId().toString(),
+                        "uid", user.getId().toString(),
                         "role", user.getRole()
                 )
         );
+    }
 
-        return new AuthResponse(token, user.getId(), user.getUsername(), user.getRole());
+    private String generateRefreshRaw() {
+        return UUID.randomUUID() + "." + UUID.randomUUID();
+    }
+
+    private void saveRefreshToken(User user, String refreshRaw) {
+        RefreshToken rt = RefreshToken.builder()
+                .user(user)
+                .tokenHash(sha256(refreshRaw))
+                .expiresAt(Instant.now().plusMillis(refreshExpMs))
+                .revoked(false)
+                .createdAt(Instant.now())
+                .build();
+
+        refreshTokenRepository.save(rt);
+    }
+
+    private static String sha256(String s) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] dig = md.digest(s.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(dig);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }

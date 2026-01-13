@@ -7,4 +7,5 @@ public record AuthResponse(
         UUID userId,
         String username,
         String role
+
 ) {}
