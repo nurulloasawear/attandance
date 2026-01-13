@@ -33,7 +33,7 @@ public class UserServiceImpl implements IUserService {
                 .firstName(userDto.getFirstName())
                 .lastName(userDto.getLastName())
                 .role(userDto.getRole())
-                .isActive(true)
+                .active(true)
                 .build();
 
         return mapToDto(userRepository.save(user));
@@ -52,6 +52,25 @@ public class UserServiceImpl implements IUserService {
                 .map(this::mapToDto)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
     }
+
+    @Override
+    public String getUserRoleById(UUID id) {
+        return userRepository.findById(id)
+                .map(User::getRole)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User", "id", id)
+                );
+    }
+
+    @Override
+    public String getUserRoleByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .map(User::getRole)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User", "username", username)
+                );
+    }
+
 
     private UserDto mapToDto(User user) {
         return new UserDto(

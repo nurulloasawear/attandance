@@ -1,10 +1,12 @@
 package com.attendance.userservice.controller;
 
 import com.attendance.commonlib.dto.UserDto;
+import com.attendance.userservice.security.RoleType;
 import com.attendance.userservice.service.IUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.UUID;
 
 @RestController
@@ -15,7 +17,8 @@ public class UserController {
     private final IUserService userService;
 
     @PostMapping
-    public UserDto create(@RequestBody UserDto dto, @RequestParam String password) {
+    public UserDto create(@RequestBody UserDto dto,
+                          @RequestParam String password) {
         return userService.createUser(dto, password);
     }
 
@@ -28,4 +31,22 @@ public class UserController {
     public UserDto getByUsername(@PathVariable String username) {
         return userService.getUserByUsername(username);
     }
+
+    @GetMapping("/{id}/role")
+    public String getRoleById(@PathVariable UUID id) {
+        return userService.getUserRoleById(id);
+    }
+
+    @GetMapping("/by-username/{username}/role")
+    public String getRoleByUsername(@PathVariable String username) {
+        return userService.getUserRoleByUsername(username);
+    }
+
+    @GetMapping("/roles")
+    public String[] getAllRoles() {
+        return Arrays.stream(RoleType.values())
+                .map(Enum::name)
+                .toArray(String[]::new);
+    }
+
 }
