@@ -8,6 +8,10 @@ public interface IUserService {
     UserDto getUserById(UUID id);
     String getUserRoleById(UUID id);
     UserDto getUserByUsername(String username);
+    void deleteUserById(UUID id);
 
+    void deleteUserByUsername(String username);
+
+    void deleteUserByEmail(String email);
     String getUserRoleByUsername(String username);
 }

@@ -1,9 +1,10 @@
-package com.attendance.userservice.service;
+package com.attendance.userservice.service.impl;
 
 import com.attendance.commonlib.dto.UserDto;
 import com.attendance.commonlib.exception.ResourceNotFoundException;
 import com.attendance.userservice.model.User;
 import com.attendance.userservice.repository.UserRepository;
+import com.attendance.userservice.service.IUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -70,7 +71,29 @@ public class UserServiceImpl implements IUserService {
                         new ResourceNotFoundException("User", "username", username)
                 );
     }
+    @Override
+    public void deleteUserById(UUID id) {
+        if (!userRepository.existsById(id)) {
+            throw new ResourceNotFoundException("User", "id", id);
+        }
+        userRepository.deleteById(id);
+    }
 
+    @Override
+    public void deleteUserByUsername(String username) {
+        if (!userRepository.existsByUsername(username)) {
+            throw new ResourceNotFoundException("User", "username", username);
+        }
+        userRepository.deleteByUsername(username);
+    }
+
+    @Override
+    public void deleteUserByEmail(String email) {
+        if (!userRepository.existsByEmail(email)) {
+            throw new ResourceNotFoundException("User", "email", email);
+        }
+        userRepository.deleteByEmail(email);
+    }
 
     private UserDto mapToDto(User user) {
         return new UserDto(

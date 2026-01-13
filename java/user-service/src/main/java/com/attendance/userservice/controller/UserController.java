@@ -49,4 +49,18 @@ public class UserController {
                 .toArray(String[]::new);
     }
 
+    @DeleteMapping("/{id}")
+    public void deleteById(@PathVariable UUID id) {
+        userService.deleteUserById(id);
+    }
+
+    @DeleteMapping("/by-username/{username}")
+    public void deleteByUsername(@PathVariable String username) {
+        userService.deleteUserByUsername(username);
+    }
+
+    @DeleteMapping("/by-email/{email}")
+    public void deleteByEmail(@PathVariable String email) {
+        userService.deleteUserByEmail(email);
+    }
 }
