@@ -17,8 +17,6 @@
         <java.version>17</java.version>
         <spring-boot.version>4.0.1</spring-boot.version>
 
-        <!-- Если используешь Spring Cloud (Config, Eureka, Gateway и т.д.) -->
-        <!-- Подбери совместимую версию под Boot 4 -->
         <spring-cloud.version>2025.0.0</spring-cloud.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -26,10 +24,8 @@
         <surefire.useModulePath>false</surefire.useModulePath>
     </properties>
 
-    <!-- Управление версиями зависимостей для всех модулей -->
     <dependencyManagement>
         <dependencies>
-            <!-- Spring Boot BOM -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -38,7 +34,6 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Spring Cloud BOM (если не используешь Cloud — просто удали этот блок) -->
             <dependency>
                 <groupId>org.springframework.cloud</groupId>
                 <artifactId>spring-cloud-dependencies</artifactId>
@@ -59,9 +54,7 @@
         <!-- добавляй свои -->
     </modules>
 
-    <!-- Общие зависимости, которые полезны всем модулям (обычно мало) -->
     <dependencies>
-        <!-- Lombok удобно держать тут, а в модулях просто подключать без версии -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
@@ -69,11 +62,9 @@
         </dependency>
     </dependencies>
 
-    <!-- Общие настройки сборки/плагинов для всех модулей -->
     <build>
         <pluginManagement>
             <plugins>
-                <!-- Компилятор -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
@@ -92,13 +83,11 @@
                     </configuration>
                 </plugin>
 
-                <!-- Интеграционные тесты (если надо) -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
                 </plugin>
 
-                <!-- Spring Boot plugin: будет использоваться только в сервисах, где он подключен -->
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
