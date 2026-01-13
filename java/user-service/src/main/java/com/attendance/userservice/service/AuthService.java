@@ -1,9 +1,6 @@
 package com.attendance.userservice.service;
 
-import com.attendance.userservice.dto.AuthResponseDto;
-import com.attendance.userservice.dto.LoginRequest;
-import com.attendance.userservice.dto.RefreshRequest;
-import com.attendance.userservice.dto.RegisterRequest;
+import com.attendance.userservice.dto.*;
 import com.attendance.userservice.model.RefreshToken;
 import com.attendance.userservice.model.User;
 import com.attendance.userservice.repository.RefreshTokenRepository;
@@ -14,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.attendance.userservice.security.SessionService;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -30,7 +28,7 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-
+    private final SessionService sessionService;
     @Value("${security.jwt.refresh-expiration-ms}")
     private long refreshExpMs;
 
@@ -57,21 +55,34 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthResponseDto  login(LoginRequest req) {
+    public AuthTokensResponse login(LoginRequest req, String device, String ip) {
         User user = userRepository.findByUsername(req.username())
                 .orElseThrow(() -> new IllegalStateException("Invalid credentials"));
 
-        if (!user.isActive() || !passwordEncoder.matches(req.password(), user.getPassword())) {
+        if (!user.isActive()) throw new IllegalStateException("User disabled");
+        if (!passwordEncoder.matches(req.password(), user.getPassword()))
             throw new IllegalStateException("Invalid credentials");
-        }
 
-        String access = generateAccess(user);
-        String refreshRaw = generateRefreshRaw();
+        String access = jwtService.generateAccessToken(
+                user.getUsername(),
+                Map.of("uid", user.getId().toString(), "role", user.getRole())
+        );
 
-        saveRefreshToken(user, refreshRaw);
+        String refreshRaw = UUID.randomUUID() + "." + UUID.randomUUID();
+        String refreshHash = sha256(refreshRaw);
 
-        return new AuthResponseDto(access, refreshRaw, "Bearer");
+        String sessionId = sessionService.createSession(
+                user.getId(),
+                user.getUsername(),
+                user.getRole(),
+                refreshHash,
+                device,
+                ip
+        );
+
+        return new AuthTokensResponse(access, refreshRaw, "Bearer", sessionId);
     }
+
 
     @Transactional
     public AuthResponseDto refresh(RefreshRequest req) {
