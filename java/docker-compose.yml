@@ -19,9 +19,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: attendance-redis
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
-    command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redisdata:/data
     healthcheck:
@@ -37,8 +37,11 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/attendance_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres123
+
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
+
+      SECURITY_JWT_SECRET: +i38C96CqmxwIheqUXRKPHpO/07bWCgLE2SnYJgOQl4=
     depends_on:
       postgres:
         condition: service_healthy

@@ -6,12 +6,13 @@ import com.attendance.userservice.model.User;
 import com.attendance.userservice.repository.RefreshTokenRepository;
 import com.attendance.userservice.repository.UserRepository;
 import com.attendance.userservice.security.JwtService;
+import com.attendance.userservice.security.RedisTokenService;
+import com.attendance.userservice.security.SessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.attendance.userservice.security.SessionService;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -29,6 +30,8 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final SessionService sessionService;
+    private final RedisTokenService redisTokenService;
+
     @Value("${security.jwt.refresh-expiration-ms}")
     private long refreshExpMs;
 
@@ -53,20 +56,44 @@ public class AuthService {
 
         userRepository.save(user);
     }
+    @Transactional
+    public void logoutByAccessToken(String authHeader) {
+        String token = extractBearer(authHeader);
+        if (token == null || !jwtService.isValid(token)) return;
+
+        String jti = jwtService.extractJti(token);
+        if (jti != null) {
+            redisTokenService.revokeAccessToken(jti);
+        }
+
+        String sid = jwtService.extractSessionId(token);
+
+        String uidStr = jwtService.extractClaim(token, c -> {
+            Object uid = c.get("uid");
+            return uid == null ? null : uid.toString();
+        });
+
+        if (sid != null && uidStr != null) {
+            sessionService.revokeSession(UUID.fromString(uidStr), sid);
+        }
+    }
+
+
+    private static String extractBearer(String header) {
+        if (header == null) return null;
+        if (!header.startsWith("Bearer ")) return null;
+        return header.substring(7);
+    }
 
     @Transactional
     public AuthTokensResponse login(LoginRequest req, String device, String ip) {
+
         User user = userRepository.findByUsername(req.username())
                 .orElseThrow(() -> new IllegalStateException("Invalid credentials"));
 
         if (!user.isActive()) throw new IllegalStateException("User disabled");
         if (!passwordEncoder.matches(req.password(), user.getPassword()))
             throw new IllegalStateException("Invalid credentials");
-
-        String access = jwtService.generateAccessToken(
-                user.getUsername(),
-                Map.of("uid", user.getId().toString(), "role", user.getRole())
-        );
 
         String refreshRaw = UUID.randomUUID() + "." + UUID.randomUUID();
         String refreshHash = sha256(refreshRaw);
@@ -79,6 +106,15 @@ public class AuthService {
                 device,
                 ip
         );
+
+        String access = jwtService.generateAccessToken(
+                user.getUsername(),
+                Map.of("uid", user.getId().toString(), "role", user.getRole()),
+                sessionId
+        );
+
+        String jti = jwtService.extractJti(access);
+        redisTokenService.storeAccessToken(jti, sessionId, jwtService.getAccessExpirationMs());
 
         return new AuthTokensResponse(access, refreshRaw, "Bearer", sessionId);
     }
@@ -103,10 +139,22 @@ public class AuthService {
         old.setRevoked(true);
         refreshTokenRepository.save(old);
 
-        String access = generateAccess(user);
         String refreshRaw = generateRefreshRaw();
-
         saveRefreshToken(user, refreshRaw);
+
+        String access = jwtService.generateAccessToken(
+                user.getUsername(),
+                Map.of("uid", user.getId().toString(), "role", user.getRole()),
+                "unknown"
+        );
+
+        String jti = jwtService.extractJti(access);
+
+        redisTokenService.storeAccessToken(
+                jti,
+                "unknown",
+                jwtService.getAccessExpirationMs()
+        );
 
         return new AuthResponseDto(access, refreshRaw, "Bearer");
     }
@@ -118,16 +166,6 @@ public class AuthService {
             rt.setRevoked(true);
             refreshTokenRepository.save(rt);
         });
-    }
-
-    private String generateAccess(User user) {
-        return jwtService.generateAccessToken(
-                user.getUsername(),
-                Map.of(
-                        "uid", user.getId().toString(),
-                        "role", user.getRole()
-                )
-        );
     }
 
     private String generateRefreshRaw() {

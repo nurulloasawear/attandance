@@ -2,6 +2,7 @@ package com.attendance.userservice.controller;
 
 import com.attendance.userservice.dto.*;
 import com.attendance.userservice.service.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -21,8 +22,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public AuthResponseDto login(@RequestBody @Valid LoginRequest req) {
-        return authService.login(req);
+    public AuthTokensResponse login(
+            @RequestBody @Valid LoginRequest req,
+            HttpServletRequest http
+    ) {
+        String device = http.getHeader("User-Agent");
+        String ip = extractClientIp(http);
+        return authService.login(req, device, ip);
     }
 
     @PostMapping("/refresh")
@@ -31,8 +37,21 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestBody @Valid RefreshRequest req) {
-        authService.logout(req);
+    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authHeader) {
+        authService.logoutByAccessToken(authHeader);
         return ResponseEntity.ok().build();
+    }
+
+
+    private static String extractClientIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
+        }
+        String realIp = request.getHeader("X-Real-IP");
+        if (realIp != null && !realIp.isBlank()) {
+            return realIp.trim();
+        }
+        return request.getRemoteAddr();
     }
 }

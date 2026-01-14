@@ -41,7 +41,6 @@ public class SessionService {
 
         redis.opsForHash().putAll(sessKey, data);
         redis.expire(sessKey, refreshExpMs, TimeUnit.MILLISECONDS);
-
         redis.opsForSet().add(userSetKey, sessionId);
 
         return sessionId;
@@ -55,21 +54,14 @@ public class SessionService {
 
     public void touch(String sessionId) {
         String sessKey = "sess:" + sessionId;
-        redis.opsForHash().put(sessKey, "lastSeen", Instant.now().toString());
+        if (Boolean.TRUE.equals(redis.hasKey(sessKey))) {
+            redis.opsForHash().put(sessKey, "lastSeen", Instant.now().toString());
+        }
     }
 
     public void revokeSession(UUID userId, String sessionId) {
         redis.delete("sess:" + sessionId);
         redis.opsForSet().remove("userSess:" + userId, sessionId);
-    }
-
-    public void revokeAll(UUID userId) {
-        String userSetKey = "userSess:" + userId;
-        Set<String> sessions = redis.opsForSet().members(userSetKey);
-        if (sessions != null) {
-            for (String sid : sessions) redis.delete("sess:" + sid);
-        }
-        redis.delete(userSetKey);
     }
 
     public List<Map<Object, Object>> listSessions(UUID userId) {
