@@ -4,5 +4,6 @@ public record AuthTokensResponse(
         String accessToken,
         String refreshToken,
         String tokenType,
-        String sessionId
+        String sessionId,
+        String publicId
 ) {}

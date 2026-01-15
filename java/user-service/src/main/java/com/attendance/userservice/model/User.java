@@ -17,6 +17,8 @@ public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
+    @Column(name = "public_id", nullable = false, unique = true, length = 8)
+    private String publicId;
 
     @Column(nullable = false, unique = true, length = 100)
     private String username;
@@ -36,6 +38,8 @@ public class User {
     @Column(nullable = false, length = 50)
     private String role;
 
-    @Column(name = "active", nullable = false)
+    @Column(name = "is_active", nullable = false)
     private boolean active;
+
+
 }

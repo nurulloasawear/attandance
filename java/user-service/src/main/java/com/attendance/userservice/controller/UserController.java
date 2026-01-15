@@ -3,9 +3,14 @@ package com.attendance.userservice.controller;
 import com.attendance.commonlib.dto.UserDto;
 import com.attendance.userservice.security.RoleType;
 import com.attendance.userservice.service.IUserService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
@@ -36,14 +41,32 @@ public class UserController {
     }
 
     @GetMapping("/me")
-    public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
-        return Map.of(
-                "username", jwt.getSubject(),
-                "uid", jwt.getClaimAsString("uid"),
-                "role", jwt.getClaimAsString("role"),
-                "sid", jwt.getClaimAsString("sid"),
-                "jti", jwt.getClaimAsString("jti")
-        );
+    public ResponseEntity<?> me() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized", "message", "Missing or invalid access token"));
+        }
+
+        // Если твой фильтр реально кладёт JwtAuthenticationToken:
+        if (auth instanceof JwtAuthenticationToken jat) {
+            Jwt jwt = jat.getToken();
+            return ResponseEntity.ok(Map.of(
+                    "username", jwt.getSubject(),
+                    "uid", jwt.getClaimAsString("uid"),
+                    "role", jwt.getClaimAsString("role"),
+                    "sid", jwt.getClaimAsString("sid"),
+                    "jti", jwt.getClaimAsString("jti")
+            ));
+        }
+
+        // Если твой фильтр кладёт UsernamePasswordAuthenticationToken:
+        // (тогда claims лучше положить в details в фильтре)
+        return ResponseEntity.ok(Map.of(
+                "principal", auth.getPrincipal().toString(),
+                "authorities", auth.getAuthorities().toString()
+        ));
     }
 
     @GetMapping("/{id}/role")

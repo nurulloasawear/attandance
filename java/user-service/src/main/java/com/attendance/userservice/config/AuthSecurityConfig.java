@@ -31,7 +31,6 @@ public class AuthSecurityConfig {
                                 "/api/auth/login",
                                 "/api/auth/refresh"
                         ).permitAll()
-                        // logout можно сделать protected (по Bearer)
                         .requestMatchers("/api/auth/logout").authenticated()
                         .anyRequest().denyAll()
                 )
