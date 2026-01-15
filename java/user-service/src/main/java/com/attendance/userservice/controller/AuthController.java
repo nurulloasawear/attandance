@@ -16,9 +16,14 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<Void> register(@RequestBody @Valid RegisterRequest req) {
-        authService.register(req);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<AuthTokensResponse> register(
+            @RequestBody @Valid RegisterRequest req,
+            @RequestHeader(value = "X-Device", required = false) String device,
+            HttpServletRequest request
+    ) {
+        String ip = request.getRemoteAddr();
+        AuthTokensResponse tokens = authService.register(req, device, ip);
+        return ResponseEntity.ok(tokens);
     }
 
     @PostMapping("/login")

@@ -3,10 +3,13 @@ package com.attendance.userservice.controller;
 import com.attendance.commonlib.dto.UserDto;
 import com.attendance.userservice.security.RoleType;
 import com.attendance.userservice.service.IUserService;
+import io.jsonwebtoken.Jwt;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -30,6 +33,17 @@ public class UserController {
     @GetMapping("/by-username/{username}")
     public UserDto getByUsername(@PathVariable String username) {
         return userService.getUserByUsername(username);
+    }
+
+    @GetMapping("/me")
+    public Map<String, Object> me(@AuthenticationPrincipal Jwt jwt) {
+        return Map.of(
+                "username", jwt.getSubject(),
+                "uid", jwt.getClaimAsString("uid"),
+                "role", jwt.getClaimAsString("role"),
+                "sid", jwt.getClaimAsString("sid"),
+                "jti", jwt.getClaimAsString("jti")
+        );
     }
 
     @GetMapping("/{id}/role")

@@ -1,6 +1,7 @@
 package com.attendance.userservice.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +14,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 @Service
@@ -39,21 +41,25 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>(extraClaims);
         claims.put("sid", sessionId);
 
-        Instant now = Instant.now();
-
         return Jwts.builder()
+                .id(jti) // <-- ВАЖНО: это JWT ID
                 .subject(subject)
                 .claims(claims)
-                .id(jti)
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(accessExpMs)))
+                .issuedAt(Date.from(Instant.now()))
+                .expiration(Date.from(Instant.now().plusMillis(accessExpMs)))
                 .signWith(key)
                 .compact();
     }
 
+
+
+    public String extractClaimString(String token, String key) {
+        Object v = parseClaims(token).get(key);
+        return v == null ? null : v.toString();
+    }
+
     public <T> T extractClaim(String token, Function<Claims, T> resolver) {
-        Claims claims = parseClaims(token);
-        return resolver.apply(claims);
+        return resolver.apply(parseClaims(token));
     }
     public String extractUid(String token) {
         return extractClaim(token, c -> {
@@ -62,8 +68,12 @@ public class JwtService {
         });
     }
 
+//    public void extend(String sessionId) {
+//        redis.expire("sess:" + sessionId, refreshExpMs, TimeUnit.MILLISECONDS);
+//    }
+
     public String extractJti(String token) {
-        return extractClaim(token, Claims::getId);
+        return parseClaims(token).getId();
     }
 
     public String extractSessionId(String token) {
@@ -77,12 +87,12 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
+
     public boolean isValid(String token) {
         try {
-            Claims c = parseClaims(token);
-            Date exp = c.getExpiration();
-            return exp != null && exp.after(new Date());
-        } catch (Exception e) {
+            parseClaims(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
@@ -95,10 +105,7 @@ public class JwtService {
                 .getPayload();
     }
     public String extractRole(String token) {
-        return extractClaim(token, claims -> {
-            Object role = claims.get("role");
-            return role == null ? null : role.toString();
-        });
+        return extractClaimString(token, "role");
     }
 
 }

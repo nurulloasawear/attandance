@@ -36,7 +36,7 @@ public class AuthService {
     private long refreshExpMs;
 
     @Transactional
-    public void register(RegisterRequest req) {
+    public AuthTokensResponse register(RegisterRequest req, String device, String ip) {
         if (userRepository.existsByUsername(req.username())) {
             throw new IllegalStateException("Username already exists");
         }
@@ -55,7 +55,32 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
+
+        // сразу создаём refresh + session
+        String refreshRaw = UUID.randomUUID() + "." + UUID.randomUUID();
+        String refreshHash = sha256(refreshRaw);
+
+        String sid = sessionService.createSession(
+                user.getId(),
+                user.getUsername(),
+                user.getRole(),
+                refreshHash,
+                device,
+                ip
+        );
+
+        String access = jwtService.generateAccessToken(
+                user.getUsername(),
+                Map.of("uid", user.getId().toString(), "role", user.getRole()),
+                sid
+        );
+
+        String jti = jwtService.extractJti(access);
+        redisTokenService.storeAccessToken(jti, sid, jwtService.getAccessExpirationMs());
+
+        return new AuthTokensResponse(access, refreshRaw, "Bearer", sid);
     }
+
     @Transactional
     public void logoutByAccessToken(String authHeader) {
         String token = extractBearer(authHeader);
