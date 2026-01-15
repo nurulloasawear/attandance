@@ -1,7 +1,7 @@
 package com.attendance.userservice.service.impl;
 
 import com.attendance.commonlib.dto.UserDto;
-import com.attendance.commonlib.exception.ResourceNotFoundException;
+import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.User;
 import com.attendance.userservice.repository.UserRepository;
 import com.attendance.userservice.service.IUserService;
@@ -10,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -19,17 +20,23 @@ public class UserServiceImpl implements IUserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final PublicIdGeneratorImpl publicIdGenerator;
+
     @Override
+    @Transactional
     public UserDto createUser(UserDto dto, String rawPassword) {
 
         if (userRepository.existsByUsername(dto.getUsername())) {
-            throw new IllegalStateException("Username already exists");
+            throw Errors.conflict("Username already exists", Map.of("username", dto.getUsername()));
         }
         if (userRepository.existsByEmail(dto.getEmail())) {
-            throw new IllegalStateException("Email already exists");
+            throw Errors.conflict("Email already exists", Map.of("email", dto.getEmail()));
         }
 
+        String publicId = publicIdGenerator.generateUnique();
+
         User user = User.builder()
+                .publicId(publicId)
                 .username(dto.getUsername())
                 .email(dto.getEmail())
                 .password(passwordEncoder.encode(rawPassword))
@@ -41,39 +48,40 @@ public class UserServiceImpl implements IUserService {
 
         return mapToDto(userRepository.save(user));
     }
+
     @Override
     public UserDto getUserById(UUID id) {
         return userRepository.findById(id)
                 .map(this::mapToDto)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+                .orElseThrow(() -> Errors.notFound("User not found", Map.of("id", id.toString())));
     }
 
     @Override
     public UserDto getUserByUsername(String username) {
         return userRepository.findByUsername(username)
                 .map(this::mapToDto)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+                .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
     }
 
     @Override
     public String getUserRoleById(UUID id) {
         return userRepository.findById(id)
                 .map(User::getRole)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
+                .orElseThrow(() -> Errors.notFound("User not found", Map.of("id", id.toString())));
     }
 
     @Override
     public String getUserRoleByUsername(String username) {
         return userRepository.findByUsername(username)
                 .map(User::getRole)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
+                .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
     }
 
     @Override
     @Transactional
     public void deleteUserById(UUID id) {
         if (!userRepository.existsById(id)) {
-            throw new ResourceNotFoundException("User", "id", id);
+            throw Errors.notFound("User not found", Map.of("id", id.toString()));
         }
         userRepository.deleteById(id);
     }
@@ -82,7 +90,7 @@ public class UserServiceImpl implements IUserService {
     @Transactional
     public void deleteUserByUsername(String username) {
         if (!userRepository.existsByUsername(username)) {
-            throw new ResourceNotFoundException("User", "username", username);
+            throw Errors.notFound("User not found", Map.of("username", username));
         }
         userRepository.deleteByUsername(username);
     }
@@ -91,7 +99,7 @@ public class UserServiceImpl implements IUserService {
     @Transactional
     public void deleteUserByEmail(String email) {
         if (!userRepository.existsByEmail(email)) {
-            throw new ResourceNotFoundException("User", "email", email);
+            throw Errors.notFound("User not found", Map.of("email", email));
         }
         userRepository.deleteByEmail(email);
     }
@@ -99,6 +107,7 @@ public class UserServiceImpl implements IUserService {
     private UserDto mapToDto(User user) {
         return new UserDto(
                 user.getId(),
+                user.getPublicId(),
                 user.getUsername(),
                 user.getEmail(),
                 user.getFirstName(),

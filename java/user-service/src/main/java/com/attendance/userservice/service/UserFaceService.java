@@ -1,5 +1,6 @@
 package com.attendance.userservice.service;
 
+import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.User;
 import com.attendance.userservice.model.UserFace;
 import com.attendance.userservice.repository.UserFaceRepository;
@@ -9,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -30,11 +32,17 @@ public class UserFaceService {
         validate(bytes, format);
 
         if (userFaceRepository.existsByUser_PublicId(publicId)) {
-            throw new IllegalStateException("UserFace already exists (use PUT to update)");
+            throw Errors.conflict(
+                    "UserFace already exists",
+                    Map.of("publicId", publicId)
+            );
         }
 
         User user = userRepository.findByPublicId(publicId)
-                .orElseThrow(() -> new IllegalStateException("User not found by publicId: " + publicId));
+                .orElseThrow(() -> Errors.notFound(
+                        "User not found",
+                        Map.of("publicId", publicId)
+                ));
 
         Instant now = Instant.now();
 
@@ -58,7 +66,10 @@ public class UserFaceService {
         UserFace face = userFaceRepository.findByUser_PublicId(publicId)
                 .orElseGet(() -> {
                     User user = userRepository.findByPublicId(publicId)
-                            .orElseThrow(() -> new IllegalStateException("User not found by publicId: " + publicId));
+                            .orElseThrow(() -> Errors.notFound(
+                                    "User not found",
+                                    Map.of("publicId", publicId)
+                            ));
                     Instant now = Instant.now();
                     return UserFace.builder()
                             .id(UUID.randomUUID())
@@ -79,26 +90,50 @@ public class UserFaceService {
     @Transactional(readOnly = true)
     public UserFace get(String publicId) {
         return userFaceRepository.findByUser_PublicId(publicId)
-                .orElseThrow(() -> new IllegalStateException("UserFace not found"));
+                .orElseThrow(() -> Errors.notFound(
+                        "UserFace not found",
+                        Map.of("publicId", publicId)
+                ));
     }
 
     @Transactional
     public void delete(String publicId) {
-        if (!userFaceRepository.existsByUser_PublicId(publicId)) return;
+        if (!userFaceRepository.existsByUser_PublicId(publicId)) {
+            throw Errors.notFound(
+                    "UserFace not found",
+                    Map.of("publicId", publicId)
+            );
+        }
         userFaceRepository.deleteByUser_PublicId(publicId);
     }
 
     private static void validate(byte[] bytes, String format) {
         if (bytes == null || bytes.length == 0) {
-            throw new IllegalStateException("faceData is empty");
+            throw Errors.validation(
+                    "Face template is empty",
+                    Map.of("size", 0)
+            );
         }
+
         if (bytes.length > MAX_BYTES) {
-            throw new IllegalStateException("Face template too large (max " + MAX_BYTES + " bytes)");
+            throw Errors.validation(
+                    "Face template too large",
+                    Map.of(
+                            "maxBytes", MAX_BYTES,
+                            "actualBytes", bytes.length
+                    )
+            );
         }
 
         String f = normalizeFormat(format);
         if (!ALLOWED_FORMATS.contains(f)) {
-            throw new IllegalStateException("Unsupported face format: " + f);
+            throw Errors.validation(
+                    "Unsupported face format",
+                    Map.of(
+                            "allowed", ALLOWED_FORMATS,
+                            "provided", f
+                    )
+            );
         }
     }
 

@@ -1,6 +1,7 @@
 package com.attendance.userservice.service;
 
 import com.attendance.userservice.dto.*;
+import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.RefreshToken;
 import com.attendance.userservice.model.User;
 import com.attendance.userservice.repository.RefreshTokenRepository;
@@ -11,9 +12,9 @@ import com.attendance.userservice.security.SessionService;
 import com.attendance.userservice.service.impl.PublicIdGeneratorImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -40,10 +41,10 @@ public class AuthService {
     @Transactional
     public AuthTokensResponse register(RegisterRequest req, String device, String ip) {
         if (userRepository.existsByUsername(req.username())) {
-            throw new IllegalStateException("Username already exists");
+            throw Errors.conflict("Username already exists", Map.of("username", req.username()));
         }
         if (userRepository.existsByEmail(req.email())) {
-            throw new IllegalStateException("Email already exists");
+            throw Errors.conflict("Email already exists", Map.of("email", req.email()));
         }
 
         String publicId = publicIdGenerator.generateUnique();
@@ -94,11 +95,15 @@ public class AuthService {
     @Transactional
     public AuthTokensResponse login(LoginRequest req, String device, String ip) {
         User user = userRepository.findByUsername(req.username())
-                .orElseThrow(() -> new IllegalStateException("Invalid credentials"));
+                .orElseThrow(() -> Errors.unauthorized("Invalid credentials"));
 
-        if (!user.isActive()) throw new IllegalStateException("User disabled");
-        if (!passwordEncoder.matches(req.password(), user.getPassword()))
-            throw new IllegalStateException("Invalid credentials");
+        if (!user.isActive()) {
+            throw Errors.forbidden("User disabled");
+        }
+
+        if (!passwordEncoder.matches(req.password(), user.getPassword())) {
+            throw Errors.unauthorized("Invalid credentials");
+        }
 
         String refreshRaw = generateRefreshRaw();
         String refreshHash = sha256(refreshRaw);
@@ -130,11 +135,11 @@ public class AuthService {
         return new AuthTokensResponse(access, refreshRaw, "Bearer", sid, user.getPublicId());
     }
 
-
     @Transactional
     public void logoutByAccessToken(String authHeader) {
         String token = extractBearer(authHeader);
-        if (token == null || !jwtService.isValid(token)) return;
+        if (token == null) return;
+        if (!jwtService.isValid(token)) return;
 
         String jti = jwtService.extractJti(token);
         if (jti != null) {
@@ -161,18 +166,31 @@ public class AuthService {
 
     @Transactional
     public AuthTokensResponse refresh(RefreshRequest req) {
+        if (req.refreshToken() == null || req.refreshToken().isBlank()) {
+            throw Errors.badRequest("refreshToken is required");
+        }
+        if (req.sessionId() == null || req.sessionId().isBlank()) {
+            throw Errors.badRequest("sessionId is required");
+        }
+
         String oldHash = sha256(req.refreshToken());
 
         RefreshToken old = refreshTokenRepository.findByTokenHash(oldHash)
-                .orElseThrow(() -> new IllegalStateException("Invalid refresh token"));
+                .orElseThrow(() -> Errors.tokenInvalid("Invalid refresh token"));
 
-        if (old.isRevoked() || old.getExpiresAt().isBefore(Instant.now())) {
-            throw new IllegalStateException("Invalid refresh token");
+        if (old.isRevoked()) {
+            throw Errors.tokenInvalid("Refresh token revoked");
+        }
+        if (old.getExpiresAt().isBefore(Instant.now())) {
+            throw Errors.tokenExpired("Refresh token expired");
         }
 
         User user = old.getUser();
-        if (user == null || !user.isActive()) {
-            throw new IllegalStateException("Invalid refresh token");
+        if (user == null) {
+            throw Errors.tokenInvalid("Invalid refresh token");
+        }
+        if (!user.isActive()) {
+            throw Errors.forbidden("User disabled");
         }
 
         old.setRevoked(true);
