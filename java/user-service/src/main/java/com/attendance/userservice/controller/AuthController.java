@@ -21,32 +21,43 @@ public class AuthController {
             @RequestHeader(value = "X-Device", required = false) String device,
             HttpServletRequest request
     ) {
-        String ip = request.getRemoteAddr();
-        AuthTokensResponse tokens = authService.register(req, device, ip);
+        String ip = extractClientIp(request);
+        String finalDevice = (device == null || device.isBlank())
+                ? request.getHeader("User-Agent")
+                : device;
+
+        AuthTokensResponse tokens = authService.register(req, finalDevice, ip);
         return ResponseEntity.ok(tokens);
     }
 
     @PostMapping("/login")
-    public AuthTokensResponse login(
+    public ResponseEntity<AuthTokensResponse> login(
             @RequestBody @Valid LoginRequest req,
-            HttpServletRequest http
+            @RequestHeader(value = "X-Device", required = false) String device,
+            HttpServletRequest request
     ) {
-        String device = http.getHeader("User-Agent");
-        String ip = extractClientIp(http);
-        return authService.login(req, device, ip);
+        String ip = extractClientIp(request);
+        String finalDevice = (device == null || device.isBlank())
+                ? request.getHeader("User-Agent")
+                : device;
+
+        AuthTokensResponse tokens = authService.login(req, finalDevice, ip);
+        return ResponseEntity.ok(tokens);
     }
 
     @PostMapping("/refresh")
-    public AuthResponseDto refresh(@RequestBody @Valid RefreshRequest req) {
-        return authService.refresh(req);
+    public ResponseEntity<AuthTokensResponse> refresh(@RequestBody @Valid RefreshRequest req) {
+        return ResponseEntity.ok(authService.refresh(req));
     }
 
+
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@RequestHeader("Authorization") String authHeader) {
+    public ResponseEntity<Void> logout(
+            @RequestHeader(value = "Authorization", required = false) String authHeader
+    ) {
         authService.logoutByAccessToken(authHeader);
         return ResponseEntity.ok().build();
     }
-
 
     private static String extractClientIp(HttpServletRequest request) {
         String xff = request.getHeader("X-Forwarded-For");

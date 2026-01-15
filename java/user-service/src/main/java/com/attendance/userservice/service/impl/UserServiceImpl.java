@@ -8,38 +8,39 @@ import com.attendance.userservice.service.IUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class UserServiceImpl implements IUserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-
     @Override
-    public UserDto createUser(UserDto userDto, String password) {
-        if (userRepository.existsByUsername(userDto.getUsername())) {
+    public UserDto createUser(UserDto dto, String rawPassword) {
+
+        if (userRepository.existsByUsername(dto.getUsername())) {
             throw new IllegalStateException("Username already exists");
         }
-        if (userRepository.existsByEmail(userDto.getEmail())) {
+        if (userRepository.existsByEmail(dto.getEmail())) {
             throw new IllegalStateException("Email already exists");
         }
 
         User user = User.builder()
-                .username(userDto.getUsername())
-                .password(passwordEncoder.encode(password))
-                .email(userDto.getEmail())
-                .firstName(userDto.getFirstName())
-                .lastName(userDto.getLastName())
-                .role(userDto.getRole())
+                .username(dto.getUsername())
+                .email(dto.getEmail())
+                .password(passwordEncoder.encode(rawPassword))
+                .firstName(dto.getFirstName())
+                .lastName(dto.getLastName())
+                .role(dto.getRole())
                 .active(true)
                 .build();
 
         return mapToDto(userRepository.save(user));
     }
-
     @Override
     public UserDto getUserById(UUID id) {
         return userRepository.findById(id)
@@ -58,20 +59,18 @@ public class UserServiceImpl implements IUserService {
     public String getUserRoleById(UUID id) {
         return userRepository.findById(id)
                 .map(User::getRole)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("User", "id", id)
-                );
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", id));
     }
 
     @Override
     public String getUserRoleByUsername(String username) {
         return userRepository.findByUsername(username)
                 .map(User::getRole)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("User", "username", username)
-                );
+                .orElseThrow(() -> new ResourceNotFoundException("User", "username", username));
     }
+
     @Override
+    @Transactional
     public void deleteUserById(UUID id) {
         if (!userRepository.existsById(id)) {
             throw new ResourceNotFoundException("User", "id", id);
@@ -80,6 +79,7 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    @Transactional
     public void deleteUserByUsername(String username) {
         if (!userRepository.existsByUsername(username)) {
             throw new ResourceNotFoundException("User", "username", username);
@@ -88,6 +88,7 @@ public class UserServiceImpl implements IUserService {
     }
 
     @Override
+    @Transactional
     public void deleteUserByEmail(String email) {
         if (!userRepository.existsByEmail(email)) {
             throw new ResourceNotFoundException("User", "email", email);

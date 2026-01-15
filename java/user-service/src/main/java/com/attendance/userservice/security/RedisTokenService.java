@@ -25,6 +25,10 @@ public class RedisTokenService {
         );
     }
 
+    public boolean isAccessTokenAlive(String jti) {
+        return Boolean.TRUE.equals(redis.hasKey(ACCESS_KEY + jti));
+    }
+
     public boolean isAccessTokenValid(String jti) {
         return Boolean.TRUE.equals(redis.hasKey(ACCESS_KEY + jti));
     }

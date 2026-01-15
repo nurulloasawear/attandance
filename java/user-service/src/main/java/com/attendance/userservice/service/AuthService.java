@@ -56,8 +56,7 @@ public class AuthService {
 
         userRepository.save(user);
 
-        // сразу создаём refresh + session
-        String refreshRaw = UUID.randomUUID() + "." + UUID.randomUUID();
+        String refreshRaw = generateRefreshRaw();
         String refreshHash = sha256(refreshRaw);
 
         String sid = sessionService.createSession(
@@ -77,6 +76,8 @@ public class AuthService {
 
         String jti = jwtService.extractJti(access);
         redisTokenService.storeAccessToken(jti, sid, jwtService.getAccessExpirationMs());
+
+        saveRefreshToken(user, refreshRaw);
 
         return new AuthTokensResponse(access, refreshRaw, "Bearer", sid);
     }
@@ -112,7 +113,6 @@ public class AuthService {
 
     @Transactional
     public AuthTokensResponse login(LoginRequest req, String device, String ip) {
-
         User user = userRepository.findByUsername(req.username())
                 .orElseThrow(() -> new IllegalStateException("Invalid credentials"));
 
@@ -120,10 +120,10 @@ public class AuthService {
         if (!passwordEncoder.matches(req.password(), user.getPassword()))
             throw new IllegalStateException("Invalid credentials");
 
-        String refreshRaw = UUID.randomUUID() + "." + UUID.randomUUID();
+        String refreshRaw = generateRefreshRaw();
         String refreshHash = sha256(refreshRaw);
 
-        String sessionId = sessionService.createSession(
+        String sid = sessionService.createSession(
                 user.getId(),
                 user.getUsername(),
                 user.getRole(),
@@ -135,18 +135,20 @@ public class AuthService {
         String access = jwtService.generateAccessToken(
                 user.getUsername(),
                 Map.of("uid", user.getId().toString(), "role", user.getRole()),
-                sessionId
+                sid
         );
 
         String jti = jwtService.extractJti(access);
-        redisTokenService.storeAccessToken(jti, sessionId, jwtService.getAccessExpirationMs());
+        redisTokenService.storeAccessToken(jti, sid, jwtService.getAccessExpirationMs());
 
-        return new AuthTokensResponse(access, refreshRaw, "Bearer", sessionId);
+        saveRefreshToken(user, refreshRaw);
+
+        return new AuthTokensResponse(access, refreshRaw, "Bearer", sid);
     }
 
 
     @Transactional
-    public AuthResponseDto refresh(RefreshRequest req) {
+    public AuthTokensResponse refresh(RefreshRequest req) {
         String oldHash = sha256(req.refreshToken());
 
         RefreshToken old = refreshTokenRepository.findByTokenHash(oldHash)
@@ -161,28 +163,28 @@ public class AuthService {
             throw new IllegalStateException("Invalid refresh token");
         }
 
+        // rotate refresh
         old.setRevoked(true);
         refreshTokenRepository.save(old);
 
-        String refreshRaw = generateRefreshRaw();
-        saveRefreshToken(user, refreshRaw);
+        String newRefreshRaw = generateRefreshRaw();
+        saveRefreshToken(user, newRefreshRaw);
+
+        // ✅ тот же sid
+        String sid = req.sessionId();
 
         String access = jwtService.generateAccessToken(
                 user.getUsername(),
                 Map.of("uid", user.getId().toString(), "role", user.getRole()),
-                "unknown"
+                sid
         );
 
         String jti = jwtService.extractJti(access);
+        redisTokenService.storeAccessToken(jti, sid, jwtService.getAccessExpirationMs());
 
-        redisTokenService.storeAccessToken(
-                jti,
-                "unknown",
-                jwtService.getAccessExpirationMs()
-        );
-
-        return new AuthResponseDto(access, refreshRaw, "Bearer");
+        return new AuthTokensResponse(access, newRefreshRaw, "Bearer", sid);
     }
+
 
     @Transactional
     public void logout(RefreshRequest req) {

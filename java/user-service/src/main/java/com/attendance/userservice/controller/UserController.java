@@ -3,7 +3,7 @@ package com.attendance.userservice.controller;
 import com.attendance.commonlib.dto.UserDto;
 import com.attendance.userservice.security.RoleType;
 import com.attendance.userservice.service.IUserService;
-import io.jsonwebtoken.Jwt;
+import org.springframework.security.oauth2.jwt.Jwt;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
