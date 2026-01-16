@@ -20,15 +20,23 @@ public class UserSecurityConfig {
     @Order(2)
     public SecurityFilterChain userChain(HttpSecurity http) throws Exception {
         return http
-                .securityMatcher("/api/users/**", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/actuator/**")
+                .securityMatcher(
+                        "/api/users/**",
+                        "/api/sessions/**",
+                        "/api/v1/userface/**",
+                        "/v3/api-docs/**",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html",
+                        "/actuator/**"
+                )
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // swagger/actuator можно открыть (или закрыть — как хочешь)
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/actuator/**").permitAll()
 
-                        // user api — только с токеном
                         .requestMatchers("/api/users/**").authenticated()
+                        .requestMatchers("/api/sessions/**").authenticated()
+                        .requestMatchers("/api/v1/userface/**").authenticated()
 
                         .anyRequest().denyAll()
                 )

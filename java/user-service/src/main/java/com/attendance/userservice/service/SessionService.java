@@ -1,4 +1,4 @@
-package com.attendance.userservice.security;
+package com.attendance.userservice.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -57,6 +57,20 @@ public class SessionService {
         if (Boolean.TRUE.equals(redis.hasKey(sessKey))) {
             redis.opsForHash().put(sessKey, "lastSeen", Instant.now().toString());
         }
+    }
+    public int revokeAllExcept(UUID userId, String keepSessionId) {
+        String userSetKey = "userSess:" + userId;
+        Set<String> sessions = redis.opsForSet().members(userSetKey);
+        if (sessions == null) return 0;
+
+        int count = 0;
+        for (String sid : sessions) {
+            if (sid.equals(keepSessionId)) continue;
+            redis.delete("sess:" + sid);
+            redis.opsForSet().remove(userSetKey, sid);
+            count++;
+        }
+        return count;
     }
 
     public void revokeSession(UUID userId, String sessionId) {

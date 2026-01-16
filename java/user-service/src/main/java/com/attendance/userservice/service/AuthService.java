@@ -8,7 +8,6 @@ import com.attendance.userservice.repository.RefreshTokenRepository;
 import com.attendance.userservice.repository.UserRepository;
 import com.attendance.userservice.security.JwtService;
 import com.attendance.userservice.security.RedisTokenService;
-import com.attendance.userservice.security.SessionService;
 import com.attendance.userservice.service.impl.PublicIdGeneratorImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
