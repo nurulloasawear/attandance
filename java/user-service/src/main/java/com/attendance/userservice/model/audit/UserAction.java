@@ -4,5 +4,9 @@ public enum UserAction {
     USER_CREATED,
     USER_UPDATED,
     USER_DEACTIVATED,
-    USER_DELETED
+    USER_DELETED,
+
+    LOGIN,
+    LOGOUT,
+    REFRESH
 }

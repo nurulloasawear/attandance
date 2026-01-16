@@ -1,44 +1,41 @@
 package com.attendance.userservice.service.impl;
 
 import com.attendance.commonlib.dto.UserDto;
+import com.attendance.userservice.audit.AuditContext;
+import com.attendance.userservice.model.audit.UserAction;
+import com.attendance.userservice.audit.UserAuditLogService;
 import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.User;
-import com.attendance.userservice.model.audit.UserAction;
 import com.attendance.userservice.repository.UserRepository;
-import com.attendance.userservice.service.IUserService;
-import com.attendance.userservice.service.UserAuditLogService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class UserServiceImpl implements IUserService {
+public class UserServiceImpl implements com.attendance.userservice.service.IUserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PublicIdGeneratorImpl publicIdGenerator;
 
-    // ✅ audit
-    private final UserAuditLogService auditLogService;
+    private final JdbcTemplate jdbc;
+    private final UserAuditLogService audit;
 
     @Override
     @Transactional
     public UserDto createUser(UserDto dto, String rawPassword) {
-        if (dto == null) throw Errors.badRequest("body is required");
-        if (dto.getUsername() == null || dto.getUsername().isBlank()) throw Errors.badRequest("username is required");
-        if (dto.getEmail() == null || dto.getEmail().isBlank()) throw Errors.badRequest("email is required");
-        if (rawPassword == null || rawPassword.isBlank()) throw Errors.badRequest("password is required");
-
-        if (userRepository.existsByUsername(dto.getUsername())) {
+        if (userRepository.existsByUsernameAndDeletedAtIsNull(dto.getUsername())) {
             throw Errors.conflict("Username already exists", Map.of("username", dto.getUsername()));
         }
-        if (userRepository.existsByEmail(dto.getEmail())) {
+        if (userRepository.existsByEmailAndDeletedAtIsNull(dto.getEmail())) {
             throw Errors.conflict("Email already exists", Map.of("email", dto.getEmail()));
         }
 
@@ -57,78 +54,110 @@ public class UserServiceImpl implements IUserService {
 
         User saved = userRepository.save(user);
 
-        auditLogService.log(saved, UserAction.USER_CREATED,
-                null, null, null, null,
-                "Created via UserServiceImpl.createUser");
+        // audit
+        audit.log(saved.getId(), UserAction.USER_CREATED, AuditContext.empty(), "User created");
 
         return mapToDto(saved);
     }
 
     @Override
     public UserDto getUserById(UUID id) {
-        return userRepository.findById(id)
+        return userRepository.findByIdAndDeletedAtIsNull(id)
                 .map(this::mapToDto)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("id", id.toString())));
     }
 
     @Override
     public UserDto getUserByUsername(String username) {
-        return userRepository.findByUsername(username)
+        return userRepository.findByUsernameAndDeletedAtIsNull(username)
                 .map(this::mapToDto)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
     }
 
     @Override
     public String getUserRoleById(UUID id) {
-        return userRepository.findById(id)
+        return userRepository.findByIdAndDeletedAtIsNull(id)
                 .map(User::getRole)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("id", id.toString())));
     }
 
     @Override
     public String getUserRoleByUsername(String username) {
-        return userRepository.findByUsername(username)
+        return userRepository.findByUsernameAndDeletedAtIsNull(username)
                 .map(User::getRole)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
     }
 
+    // ✅ soft delete by id
     @Override
     @Transactional
     public void deleteUserById(UUID id) {
-        User user = userRepository.findById(id)
+        User user = userRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("id", id.toString())));
 
-        userRepository.delete(user); // ✅ soft delete сработает если стоит @SQLDelete
-
-        auditLogService.log(user, UserAction.USER_DELETED,
-                null, null, null, null,
-                "Deleted via deleteUserById");
+        softDeleteById(user.getId());
+        audit.log(user.getId(), UserAction.USER_DELETED, AuditContext.empty(), "Soft deleted user");
     }
 
+    // ✅ soft delete by username
     @Override
     @Transactional
     public void deleteUserByUsername(String username) {
-        User user = userRepository.findByUsername(username)
+        User user = userRepository.findByUsernameAndDeletedAtIsNull(username)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
 
-        userRepository.delete(user);
-
-        auditLogService.log(user, UserAction.USER_DELETED,
-                null, null, null, null,
-                "Deleted via deleteUserByUsername");
+        softDeleteById(user.getId());
+        audit.log(user.getId(), UserAction.USER_DELETED, AuditContext.empty(), "Soft deleted user");
     }
 
+    // ✅ soft delete by email
     @Override
     @Transactional
     public void deleteUserByEmail(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailAndDeletedAtIsNull(email)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("email", email)));
 
-        userRepository.delete(user);
+        softDeleteById(user.getId());
+        audit.log(user.getId(), UserAction.USER_DELETED, AuditContext.empty(), "Soft deleted user");
+    }
 
-        auditLogService.log(user, UserAction.USER_DELETED,
-                null, null, null, null,
-                "Deleted via deleteUserByEmail");
+    // ✅ deactivate (не удаляет)
+    @Transactional
+    public void deactivateUserByPublicId(String publicId, String actorPublicId, String sessionId, String ip, String device) {
+        User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
+                .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
+
+        int updated = jdbc.update("""
+            UPDATE users
+            SET is_active = FALSE,
+                updated_at = NOW(),
+                updated_by = ?
+            WHERE id = ?
+              AND deleted_at IS NULL
+        """, actorPublicId, user.getId());
+
+        if (updated == 0) {
+            throw Errors.conflict("User already deactivated or deleted", Map.of("publicId", publicId));
+        }
+
+        audit.log(user.getId(), UserAction.USER_DEACTIVATED,
+                new AuditContext(actorPublicId, sessionId, ip, device),
+                "User deactivated");
+    }
+
+    private void softDeleteById(UUID id) {
+        int updated = jdbc.update("""
+            UPDATE users
+            SET deleted_at = NOW(),
+                is_active = FALSE,
+                updated_at = NOW()
+            WHERE id = ?
+              AND deleted_at IS NULL
+        """, id);
+
+        if (updated == 0) {
+            throw Errors.conflict("User already deleted", Map.of("id", id.toString()));
+        }
     }
 
     private UserDto mapToDto(User user) {

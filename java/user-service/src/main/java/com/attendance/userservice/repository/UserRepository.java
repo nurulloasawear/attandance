@@ -13,7 +13,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByPublicId(String publicId);
     boolean existsByPublicId(String publicId);
+    Optional<User> findByIdAndDeletedAtIsNull(UUID id);
+    Optional<User> findByUsernameAndDeletedAtIsNull(String username);
+    Optional<User> findByEmailAndDeletedAtIsNull(String email);
+    Optional<User> findByPublicIdAndDeletedAtIsNull(String publicId);
 
+    boolean existsByIdAndDeletedAtIsNull(UUID id);
+    boolean existsByUsernameAndDeletedAtIsNull(String username);
+    boolean existsByEmailAndDeletedAtIsNull(String email);
+    boolean existsByPublicIdAndDeletedAtIsNull(String publicId);
     void deleteByUsername(String username);
     void deleteByEmail(String email);
 

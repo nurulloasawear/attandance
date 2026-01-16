@@ -49,7 +49,6 @@ public class UserController {
                     .body(Map.of("error", "Unauthorized", "message", "Missing or invalid access token"));
         }
 
-        // Если твой фильтр реально кладёт JwtAuthenticationToken:
         if (auth instanceof JwtAuthenticationToken jat) {
             Jwt jwt = jat.getToken();
             return ResponseEntity.ok(Map.of(
@@ -61,8 +60,6 @@ public class UserController {
             ));
         }
 
-        // Если твой фильтр кладёт UsernamePasswordAuthenticationToken:
-        // (тогда claims лучше положить в details в фильтре)
         return ResponseEntity.ok(Map.of(
                 "principal", auth.getPrincipal().toString(),
                 "authorities", auth.getAuthorities().toString()

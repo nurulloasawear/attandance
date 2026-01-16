@@ -9,13 +9,12 @@ import com.attendance.userservice.repository.RefreshTokenRepository;
 import com.attendance.userservice.repository.UserRepository;
 import com.attendance.userservice.security.JwtService;
 import com.attendance.userservice.security.RedisTokenService;
-import com.attendance.userservice.service.SessionService;
 import com.attendance.userservice.service.impl.PublicIdGeneratorImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -48,10 +47,11 @@ public class AuthService {
         if (req.email() == null || req.email().isBlank()) throw Errors.badRequest("email is required");
         if (req.password() == null || req.password().isBlank()) throw Errors.badRequest("password is required");
 
-        if (userRepository.existsByUsername(req.username())) {
+        // ✅ only active users (deleted_at IS NULL)
+        if (userRepository.existsByUsernameAndDeletedAtIsNull(req.username())) {
             throw Errors.conflict("Username already exists", Map.of("username", req.username()));
         }
-        if (userRepository.existsByEmail(req.email())) {
+        if (userRepository.existsByEmailAndDeletedAtIsNull(req.email())) {
             throw Errors.conflict("Email already exists", Map.of("email", req.email()));
         }
 
@@ -97,13 +97,15 @@ public class AuthService {
 
         saveRefreshToken(user, refreshRaw);
 
-        auditLogService.log(user, UserAction.USER_CREATED,
-                user.getPublicId(), // actor (сам себя создал)
-                sid, ip, device,
-                "Registered");
-
-        // ✅ Kafka event (если включишь)
-        // eventPublisher.publish(new UserEvent(...));
+        auditLogService.log(
+                user,
+                UserAction.USER_CREATED,
+                user.getPublicId(), // actor = self
+                sid,
+                ip,
+                device,
+                "Registered"
+        );
 
         return new AuthTokensResponse(access, refreshRaw, "Bearer", sid, user.getPublicId());
     }
@@ -114,16 +116,12 @@ public class AuthService {
         if (req.username() == null || req.username().isBlank()) throw Errors.badRequest("username is required");
         if (req.password() == null || req.password().isBlank()) throw Errors.badRequest("password is required");
 
-        User user = userRepository.findByUsername(req.username())
+        User user = userRepository.findByUsernameAndDeletedAtIsNull(req.username())
                 .orElseThrow(() -> Errors.unauthorized("Invalid credentials"));
 
-        if (!user.isActive()) {
-            throw Errors.forbidden("User disabled");
-        }
-
-        if (!passwordEncoder.matches(req.password(), user.getPassword())) {
+        if (!user.isActive()) throw Errors.forbidden("User disabled");
+        if (!passwordEncoder.matches(req.password(), user.getPassword()))
             throw Errors.unauthorized("Invalid credentials");
-        }
 
         String refreshRaw = generateRefreshRaw();
         String refreshHash = sha256(refreshRaw);
@@ -152,10 +150,15 @@ public class AuthService {
 
         saveRefreshToken(user, refreshRaw);
 
-        auditLogService.log(user, UserAction.USER_UPDATED,
+        auditLogService.log(
+                user,
+                UserAction.LOGIN,
                 user.getPublicId(),
-                sid, ip, device,
-                "Login (new session created)");
+                sid,
+                ip,
+                device,
+                "Login (new session created)"
+        );
 
         return new AuthTokensResponse(access, refreshRaw, "Bearer", sid, user.getPublicId());
     }
@@ -165,11 +168,6 @@ public class AuthService {
         String token = extractBearer(authHeader);
         if (token == null) return;
         if (!jwtService.isValid(token)) return;
-
-        String jti = jwtService.extractJti(token);
-        if (jti != null) {
-            redisTokenService.revokeAccessToken(jti);
-        }
 
         String sid = jwtService.extractSessionId(token);
 
@@ -183,17 +181,27 @@ public class AuthService {
             return pid == null ? null : pid.toString();
         });
 
-        if (sid != null && uidStr != null) {
-            UUID uid = UUID.fromString(uidStr);
-            sessionService.revokeSession(uid, sid);
+        // revoke access token (blacklist)
+        String jti = jwtService.extractJti(token);
+        if (jti != null) redisTokenService.revokeAccessToken(jti);
 
-            userRepository.findById(uid).ifPresent(user ->
-                    auditLogService.log(user, UserAction.USER_UPDATED,
-                            publicId != null ? publicId : user.getPublicId(),
-                            sid, null, null,
-                            "Logout (session revoked)")
-            );
-        }
+        if (sid == null || uidStr == null) return;
+
+        UUID uid = UUID.fromString(uidStr);
+
+        sessionService.revokeSession(uid, sid);
+
+        userRepository.findByIdAndDeletedAtIsNull(uid).ifPresent(user ->
+                auditLogService.log(
+                        user,
+                        UserAction.LOGOUT,
+                        (publicId != null ? publicId : user.getPublicId()),
+                        sid,
+                        null,
+                        null,
+                        "Logout (session revoked)"
+                )
+        );
     }
 
     @Transactional
@@ -212,20 +220,12 @@ public class AuthService {
         RefreshToken old = refreshTokenRepository.findByTokenHash(oldHash)
                 .orElseThrow(() -> Errors.tokenInvalid("Invalid refresh token"));
 
-        if (old.isRevoked()) {
-            throw Errors.tokenInvalid("Refresh token revoked");
-        }
-        if (old.getExpiresAt().isBefore(Instant.now())) {
-            throw Errors.tokenExpired("Refresh token expired");
-        }
+        if (old.isRevoked()) throw Errors.tokenInvalid("Refresh token revoked");
+        if (old.getExpiresAt().isBefore(Instant.now())) throw Errors.tokenExpired("Refresh token expired");
 
         User user = old.getUser();
-        if (user == null) {
-            throw Errors.tokenInvalid("Invalid refresh token");
-        }
-        if (!user.isActive()) {
-            throw Errors.forbidden("User disabled");
-        }
+        if (user == null) throw Errors.tokenInvalid("Invalid refresh token");
+        if (!user.isActive()) throw Errors.forbidden("User disabled");
 
         old.setRevoked(true);
         refreshTokenRepository.save(old);
@@ -248,10 +248,15 @@ public class AuthService {
         String jti = jwtService.extractJti(access);
         redisTokenService.storeAccessToken(jti, sid, jwtService.getAccessExpirationMs());
 
-        auditLogService.log(user, UserAction.USER_UPDATED,
+        auditLogService.log(
+                user,
+                UserAction.REFRESH,
                 user.getPublicId(),
-                sid, null, null,
-                "Refresh token rotated");
+                sid,
+                null,
+                null,
+                "Refresh token rotated"
+        );
 
         return new AuthTokensResponse(access, newRefreshRaw, "Bearer", sid, user.getPublicId());
     }
