@@ -1,16 +1,17 @@
 package com.attendance.userservice.service.impl;
 
-import com.attendance.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.security.SecureRandom;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
 public class PublicIdGeneratorImpl {
 
-    private final UserRepository userRepository;
+    private final JdbcTemplate jdbc;
     private final SecureRandom random = new SecureRandom();
 
     public String generateUnique() {
@@ -22,6 +23,7 @@ public class PublicIdGeneratorImpl {
 
             int[] digits = {0,1,2,3,4,5,6,7,8,9};
 
+            // shuffle
             for (int i = digits.length - 1; i > 0; i--) {
                 int j = random.nextInt(i + 1);
                 int tmp = digits[i];
@@ -29,6 +31,7 @@ public class PublicIdGeneratorImpl {
                 digits[j] = tmp;
             }
 
+            // first digit must not be 0
             if (digits[0] == 0) {
                 for (int k = 1; k < 8; k++) {
                     if (digits[k] != 0) {
@@ -41,17 +44,23 @@ public class PublicIdGeneratorImpl {
             }
 
             StringBuilder sb = new StringBuilder(8);
-            for (int i = 0; i < 8; i++) {
-                sb.append(digits[i]);
-            }
+            for (int i = 0; i < 8; i++) sb.append(digits[i]);
 
             String id = sb.toString();
 
-            if (!userRepository.existsByPublicId(id)) {
-                return id;
+            List<Integer> rows = jdbc.queryForList("""
+                SELECT 1
+                FROM users
+                WHERE public_id = ?
+                  AND deleted_at IS NULL
+                LIMIT 1
+            """, Integer.class, id);
+
+            if (rows.isEmpty()) {
+                return id; // unique
             }
         }
 
-        throw new IllegalStateException("Cannot generate unique publicId");
+        throw new IllegalStateException("Cannot generate unique publicId after 50 attempts");
     }
 }

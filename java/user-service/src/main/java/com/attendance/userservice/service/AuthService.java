@@ -303,26 +303,35 @@ public class AuthService {
 
 
     private boolean existsActiveByUsername(String username) {
-        Integer x = jdbc.queryForObject("""
-            SELECT 1
-            FROM users
-            WHERE username = ?
-              AND deleted_at IS NULL
-            LIMIT 1
-        """, Integer.class, username);
-        return x != null;
+        return !jdbc.queryForList("""
+        SELECT 1
+        FROM users
+        WHERE username = ?
+          AND deleted_at IS NULL
+        LIMIT 1
+    """, Integer.class, username).isEmpty();
     }
 
     private boolean existsActiveByEmail(String email) {
-        Integer x = jdbc.queryForObject("""
-            SELECT 1
-            FROM users
-            WHERE email = ?
-              AND deleted_at IS NULL
-            LIMIT 1
-        """, Integer.class, email);
-        return x != null;
+        return !jdbc.queryForList("""
+        SELECT 1
+        FROM users
+        WHERE email = ?
+          AND deleted_at IS NULL
+        LIMIT 1
+    """, Integer.class, email).isEmpty();
     }
+
+    private boolean existsByPublicId(String publicId) {
+        return !jdbc.queryForList("""
+        SELECT 1
+        FROM users
+        WHERE public_id = ?
+        LIMIT 1
+    """, Integer.class, publicId).isEmpty();
+    }
+
+
 
     private Optional<User> findActiveUserByUsername(String username) {
         return jdbc.query("""

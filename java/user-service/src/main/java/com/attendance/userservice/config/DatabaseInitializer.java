@@ -57,6 +57,7 @@ public class DatabaseInitializer {
         jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by VARCHAR(8)");
         jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_by VARCHAR(8)");
 
+
         jdbcTemplate.execute("""
             DO $$
             DECLARE c RECORD;
@@ -79,6 +80,7 @@ public class DatabaseInitializer {
                 END LOOP;
             END $$;
         """);
+
 
         jdbcTemplate.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS ux_users_public_id_active
@@ -109,6 +111,7 @@ public class DatabaseInitializer {
             ON users (email)
             WHERE deleted_at IS NULL
         """);
+
 
         jdbcTemplate.execute("""
             CREATE OR REPLACE FUNCTION set_updated_at()
@@ -152,7 +155,6 @@ public class DatabaseInitializer {
         jdbcTemplate.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked BOOLEAN NOT NULL DEFAULT FALSE");
         jdbcTemplate.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
 
-
         jdbcTemplate.execute("""
             DO $$
             BEGIN
@@ -170,17 +172,16 @@ public class DatabaseInitializer {
 
 
         jdbcTemplate.execute("""
-            CREATE TABLE IF NOT EXISTS user_faces (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id UUID NOT NULL,
+        CREATE TABLE IF NOT EXISTS user_faces (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            user_id UUID NOT NULL,
 
-                face_data BYTEA NOT NULL,
-                content_type VARCHAR(100) NOT NULL,
-                size_bytes BIGINT NOT NULL,
+            face_data BYTEA NOT NULL,
+            content_type VARCHAR(100) NOT NULL,
+            size_bytes BIGINT NOT NULL,
 
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())
         """);
 
         jdbcTemplate.execute("ALTER TABLE user_faces ADD COLUMN IF NOT EXISTS user_id UUID");
@@ -189,6 +190,11 @@ public class DatabaseInitializer {
         jdbcTemplate.execute("ALTER TABLE user_faces ADD COLUMN IF NOT EXISTS size_bytes BIGINT");
         jdbcTemplate.execute("ALTER TABLE user_faces ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
         jdbcTemplate.execute("ALTER TABLE user_faces ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
+        jdbcTemplate.execute("""
+ALTER TABLE user_faces
+    ADD COLUMN IF NOT EXISTS format VARCHAR(50);
+""");
+
 
         jdbcTemplate.execute("""
             DO $$
@@ -231,18 +237,70 @@ public class DatabaseInitializer {
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS user_audit_logs (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+
                 user_id UUID NULL,
-                action VARCHAR(50) NOT NULL,
+                user_public_id VARCHAR(50),
 
-                actor_public_id VARCHAR(8),
-                session_id VARCHAR(100),
+                action VARCHAR(50),
+                actor VARCHAR(100),
+                sid VARCHAR(100),
+
                 ip VARCHAR(100),
-                device VARCHAR(200),
+                device VARCHAR(255),
 
-                message VARCHAR(500),
+                details TEXT,
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
         """);
+
+        jdbcTemplate.execute("""
+            DO $$
+            BEGIN
+                -- actor_public_id -> user_public_id
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='actor_public_id'
+                ) AND NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='user_public_id'
+                ) THEN
+                    ALTER TABLE public.user_audit_logs RENAME COLUMN actor_public_id TO user_public_id;
+                END IF;
+
+                -- session_id -> sid
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='session_id'
+                ) AND NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='sid'
+                ) THEN
+                    ALTER TABLE public.user_audit_logs RENAME COLUMN session_id TO sid;
+                END IF;
+
+                -- message -> details
+                IF EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='message'
+                ) AND NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='details'
+                ) THEN
+                    ALTER TABLE public.user_audit_logs RENAME COLUMN message TO details;
+                END IF;
+            END $$;
+        """);
+
+        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS actor VARCHAR(100)");
+        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS sid VARCHAR(100)");
+        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS ip VARCHAR(100)");
+        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS device VARCHAR(255)");
+        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS details TEXT");
+
+        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
+        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS action VARCHAR(50)");
+        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS user_id UUID");
+        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS user_public_id VARCHAR(50)");
 
         jdbcTemplate.execute("""
             DO $$
@@ -262,6 +320,14 @@ public class DatabaseInitializer {
         jdbcTemplate.execute("""
             CREATE INDEX IF NOT EXISTS ix_user_audit_logs_action_created_at
             ON user_audit_logs (action, created_at DESC)
+        """);
+        jdbcTemplate.execute("""
+            CREATE INDEX IF NOT EXISTS ix_user_audit_logs_user_public_id_created_at
+            ON user_audit_logs (user_public_id, created_at DESC)
+        """);
+        jdbcTemplate.execute("""
+            CREATE INDEX IF NOT EXISTS ix_user_audit_logs_sid_created_at
+            ON user_audit_logs (sid, created_at DESC)
         """);
     }
 }

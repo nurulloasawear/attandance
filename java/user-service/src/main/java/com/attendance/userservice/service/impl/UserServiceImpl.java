@@ -1,19 +1,17 @@
 package com.attendance.userservice.service.impl;
 
 import com.attendance.commonlib.dto.UserDto;
-import com.attendance.userservice.audit.AuditContext;
-import com.attendance.userservice.model.audit.UserAction;
-import com.attendance.userservice.audit.UserAuditLogService;
 import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.User;
+import com.attendance.userservice.model.audit.UserAction;
 import com.attendance.userservice.repository.UserRepository;
+import com.attendance.userservice.service.UserAuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -32,6 +30,11 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
     @Override
     @Transactional
     public UserDto createUser(UserDto dto, String rawPassword) {
+        if (dto == null) throw Errors.badRequest("body is required");
+        if (dto.getUsername() == null || dto.getUsername().isBlank()) throw Errors.badRequest("username is required");
+        if (dto.getEmail() == null || dto.getEmail().isBlank()) throw Errors.badRequest("email is required");
+        if (rawPassword == null || rawPassword.isBlank()) throw Errors.badRequest("password is required");
+
         if (userRepository.existsByUsernameAndDeletedAtIsNull(dto.getUsername())) {
             throw Errors.conflict("Username already exists", Map.of("username", dto.getUsername()));
         }
@@ -54,7 +57,16 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
 
         User saved = userRepository.save(user);
 
-        audit.log(saved.getId(), UserAction.USER_CREATED, AuditContext.empty(), "User created");
+        // ✅ Новый формат аудита: 7 аргументов
+        audit.log(
+                saved,
+                UserAction.USER_CREATED,
+                saved.getPublicId(), // actor (кто создал) — пока сам user
+                null,                // sid
+                null,                // ip
+                null,                // device
+                "User created"
+        );
 
         return mapToDto(saved);
     }
@@ -94,7 +106,16 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("id", id.toString())));
 
         softDeleteById(user.getId());
-        audit.log(user.getId(), UserAction.USER_DELETED, AuditContext.empty(), "Soft deleted user");
+
+        audit.log(
+                user,
+                UserAction.USER_DELETED,
+                null,   // actor public id (если нет — null)
+                null,   // sid
+                null,   // ip
+                null,   // device
+                "Soft deleted user"
+        );
     }
 
     @Override
@@ -104,7 +125,13 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
 
         softDeleteById(user.getId());
-        audit.log(user.getId(), UserAction.USER_DELETED, AuditContext.empty(), "Soft deleted user");
+
+        audit.log(
+                user,
+                UserAction.USER_DELETED,
+                null, null, null, null,
+                "Soft deleted user"
+        );
     }
 
     @Override
@@ -114,7 +141,13 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("email", email)));
 
         softDeleteById(user.getId());
-        audit.log(user.getId(), UserAction.USER_DELETED, AuditContext.empty(), "Soft deleted user");
+
+        audit.log(
+                user,
+                UserAction.USER_DELETED,
+                null, null, null, null,
+                "Soft deleted user"
+        );
     }
 
     @Transactional
@@ -129,15 +162,22 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
                 updated_by = ?
             WHERE id = ?
               AND deleted_at IS NULL
+              AND is_active = TRUE
         """, actorPublicId, user.getId());
 
         if (updated == 0) {
             throw Errors.conflict("User already deactivated or deleted", Map.of("publicId", publicId));
         }
 
-        audit.log(user.getId(), UserAction.USER_DEACTIVATED,
-                new AuditContext(actorPublicId, sessionId, ip, device),
-                "User deactivated");
+        audit.log(
+                user,
+                UserAction.USER_DEACTIVATED,
+                actorPublicId,
+                sessionId,
+                ip,
+                device,
+                "User deactivated"
+        );
     }
 
     private void softDeleteById(UUID id) {

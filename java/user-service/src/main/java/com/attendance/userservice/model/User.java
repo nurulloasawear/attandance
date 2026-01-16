@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
 
+import java.time.Instant;
+
 @Entity
 @Table(name = "users")
 @Getter @Setter
@@ -36,5 +38,9 @@ public class User extends BaseAuditEntity {
 
     @Column(name = "is_active", nullable = false)
     private boolean active;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
 }
 

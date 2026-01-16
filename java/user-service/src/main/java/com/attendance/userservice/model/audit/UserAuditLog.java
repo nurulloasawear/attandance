@@ -17,25 +17,32 @@ public class UserAuditLog {
     @Id
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(name = "user_id")
     private UUID userId;
 
-    @Column(nullable = false)
+    @Column(name = "user_public_id")
     private String userPublicId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 40)
+    @Column(name = "action")
     private UserAction action;
 
-    @Column(nullable = false)
+    @Column(name = "created_at")
     private Instant createdAt;
 
+    @Column(name = "actor")
     private String actor;
 
+    @Column(name = "sid")
     private String sid;
+
+    @Column(name = "ip")
     private String ip;
+
+    @Column(name = "device")
     private String device;
 
-    @Column(length = 1000)
+    @Column(name = "details", columnDefinition = "text")
     private String details;
 }
+
