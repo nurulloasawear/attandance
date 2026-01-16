@@ -54,7 +54,6 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
 
         User saved = userRepository.save(user);
 
-        // audit
         audit.log(saved.getId(), UserAction.USER_CREATED, AuditContext.empty(), "User created");
 
         return mapToDto(saved);
@@ -88,7 +87,6 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
     }
 
-    // ✅ soft delete by id
     @Override
     @Transactional
     public void deleteUserById(UUID id) {
@@ -99,7 +97,6 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
         audit.log(user.getId(), UserAction.USER_DELETED, AuditContext.empty(), "Soft deleted user");
     }
 
-    // ✅ soft delete by username
     @Override
     @Transactional
     public void deleteUserByUsername(String username) {
@@ -110,7 +107,6 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
         audit.log(user.getId(), UserAction.USER_DELETED, AuditContext.empty(), "Soft deleted user");
     }
 
-    // ✅ soft delete by email
     @Override
     @Transactional
     public void deleteUserByEmail(String email) {
@@ -121,7 +117,6 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
         audit.log(user.getId(), UserAction.USER_DELETED, AuditContext.empty(), "Soft deleted user");
     }
 
-    // ✅ deactivate (не удаляет)
     @Transactional
     public void deactivateUserByPublicId(String publicId, String actorPublicId, String sessionId, String ip, String device) {
         User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId)

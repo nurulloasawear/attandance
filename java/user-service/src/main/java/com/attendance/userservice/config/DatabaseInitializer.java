@@ -16,9 +16,12 @@ public class DatabaseInitializer {
     @Transactional
     public void init() {
 
+        jdbcTemplate.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto");
+
+
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id UUID PRIMARY KEY,
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
                 public_id VARCHAR(8) NOT NULL,
                 username VARCHAR(100) NOT NULL,
@@ -56,8 +59,7 @@ public class DatabaseInitializer {
 
         jdbcTemplate.execute("""
             DO $$
-            DECLARE
-                c RECORD;
+            DECLARE c RECORD;
             BEGIN
                 FOR c IN
                     SELECT conname
@@ -94,16 +96,49 @@ public class DatabaseInitializer {
             WHERE deleted_at IS NULL
         """);
 
-
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_users_deleted_at ON users (deleted_at)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_users_is_active ON users (is_active)");
         jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_users_created_at ON users (created_at DESC)");
+        jdbcTemplate.execute("""
+            CREATE INDEX IF NOT EXISTS ix_users_username_active_lookup
+            ON users (username)
+            WHERE deleted_at IS NULL
+        """);
+        jdbcTemplate.execute("""
+            CREATE INDEX IF NOT EXISTS ix_users_email_active_lookup
+            ON users (email)
+            WHERE deleted_at IS NULL
+        """);
+
+        jdbcTemplate.execute("""
+            CREATE OR REPLACE FUNCTION set_updated_at()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                NEW.updated_at = NOW();
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+        """);
+
+        jdbcTemplate.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_trigger WHERE tgname = 'trg_users_set_updated_at'
+                ) THEN
+                    CREATE TRIGGER trg_users_set_updated_at
+                    BEFORE UPDATE ON users
+                    FOR EACH ROW
+                    EXECUTE FUNCTION set_updated_at();
+                END IF;
+            END $$;
+        """);
 
 
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS refresh_tokens (
-                id UUID PRIMARY KEY,
-                user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NOT NULL,
                 token_hash VARCHAR(255) NOT NULL UNIQUE,
                 expires_at TIMESTAMPTZ NOT NULL,
                 revoked BOOLEAN NOT NULL DEFAULT FALSE,
@@ -117,13 +152,11 @@ public class DatabaseInitializer {
         jdbcTemplate.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked BOOLEAN NOT NULL DEFAULT FALSE");
         jdbcTemplate.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
 
+
         jdbcTemplate.execute("""
             DO $$
             BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint
-                    WHERE conname = 'fk_refresh_tokens_user_id'
-                ) THEN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_refresh_tokens_user_id') THEN
                     ALTER TABLE refresh_tokens
                     ADD CONSTRAINT fk_refresh_tokens_user_id
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
@@ -138,7 +171,7 @@ public class DatabaseInitializer {
 
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS user_faces (
-                id UUID PRIMARY KEY,
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                 user_id UUID NOT NULL,
 
                 face_data BYTEA NOT NULL,
@@ -159,8 +192,7 @@ public class DatabaseInitializer {
 
         jdbcTemplate.execute("""
             DO $$
-            DECLARE
-                c RECORD;
+            DECLARE c RECORD;
             BEGIN
                 FOR c IN
                     SELECT conname
@@ -185,10 +217,7 @@ public class DatabaseInitializer {
         jdbcTemplate.execute("""
             DO $$
             BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint
-                    WHERE conname = 'fk_user_faces_user_id'
-                ) THEN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_faces_user_id') THEN
                     ALTER TABLE user_faces
                     ADD CONSTRAINT fk_user_faces_user_id
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
@@ -196,10 +225,13 @@ public class DatabaseInitializer {
             END $$;
         """);
 
+        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_user_faces_user_id ON user_faces (user_id)");
+
+
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS user_audit_logs (
-                id UUID PRIMARY KEY,
-                user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NULL,
                 action VARCHAR(50) NOT NULL,
 
                 actor_public_id VARCHAR(8),
@@ -210,6 +242,17 @@ public class DatabaseInitializer {
                 message VARCHAR(500),
                 created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
             )
+        """);
+
+        jdbcTemplate.execute("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_audit_logs_user_id') THEN
+                    ALTER TABLE user_audit_logs
+                    ADD CONSTRAINT fk_user_audit_logs_user_id
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
+                END IF;
+            END $$;
         """);
 
         jdbcTemplate.execute("""

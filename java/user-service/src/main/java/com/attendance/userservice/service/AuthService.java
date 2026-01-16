@@ -5,13 +5,14 @@ import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.RefreshToken;
 import com.attendance.userservice.model.User;
 import com.attendance.userservice.model.audit.UserAction;
+import com.attendance.userservice.service.UserAuditLogService;
 import com.attendance.userservice.repository.RefreshTokenRepository;
-import com.attendance.userservice.repository.UserRepository;
 import com.attendance.userservice.security.JwtService;
 import com.attendance.userservice.security.RedisTokenService;
 import com.attendance.userservice.service.impl.PublicIdGeneratorImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,14 +22,16 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
+    private final JdbcTemplate jdbc;
+
+    private final RefreshTokenRepository refreshTokenRepository; // пока оставим как есть
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final SessionService sessionService;
@@ -40,6 +43,7 @@ public class AuthService {
     @Value("${security.jwt.refresh-expiration-ms}")
     private long refreshExpMs;
 
+
     @Transactional
     public AuthTokensResponse register(RegisterRequest req, String device, String ip) {
         if (req == null) throw Errors.badRequest("body is required");
@@ -47,34 +51,64 @@ public class AuthService {
         if (req.email() == null || req.email().isBlank()) throw Errors.badRequest("email is required");
         if (req.password() == null || req.password().isBlank()) throw Errors.badRequest("password is required");
 
-        // ✅ only active users (deleted_at IS NULL)
-        if (userRepository.existsByUsernameAndDeletedAtIsNull(req.username())) {
+        if (existsActiveByUsername(req.username())) {
             throw Errors.conflict("Username already exists", Map.of("username", req.username()));
         }
-        if (userRepository.existsByEmailAndDeletedAtIsNull(req.email())) {
+        if (existsActiveByEmail(req.email())) {
             throw Errors.conflict("Email already exists", Map.of("email", req.email()));
         }
 
+        UUID userId = UUID.randomUUID();
         String publicId = publicIdGenerator.generateUnique();
 
-        User user = User.builder()
-                .publicId(publicId)
-                .username(req.username())
-                .email(req.email())
-                .password(passwordEncoder.encode(req.password()))
-                .firstName(req.firstName())
-                .lastName(req.lastName())
-                .role("ROLE_EMPLOYEE")
-                .active(true)
-                .build();
+        String encoded = passwordEncoder.encode(req.password());
 
-        userRepository.save(user);
+        int inserted = jdbc.update("""
+            INSERT INTO users (
+                id, public_id, username, password, email,
+                first_name, last_name, role, is_active,
+                created_at, updated_at, deleted_at,
+                created_by, updated_by
+            )
+            VALUES (
+                ?, ?, ?, ?, ?,
+                ?, ?, 'ROLE_EMPLOYEE', TRUE,
+                NOW(), NOW(), NULL,
+                ?, ?
+            )
+        """,
+                userId,
+                publicId,
+                req.username(),
+                encoded,
+                req.email(),
+                req.firstName(),
+                req.lastName(),
+                publicId,
+                publicId
+        );
+
+        if (inserted != 1) {
+            throw Errors.internal("Failed to create user");
+        }
+
+
+        User user = new User();
+        user.setId(userId);
+        user.setPublicId(publicId);
+        user.setUsername(req.username());
+        user.setEmail(req.email());
+        user.setPassword(encoded);
+        user.setFirstName(req.firstName());
+        user.setLastName(req.lastName());
+        user.setRole("ROLE_EMPLOYEE");
+        user.setActive(true);
 
         String refreshRaw = generateRefreshRaw();
         String refreshHash = sha256(refreshRaw);
 
         String sid = sessionService.createSession(
-                user.getId(),
+                userId,
                 user.getUsername(),
                 user.getRole(),
                 refreshHash,
@@ -85,9 +119,9 @@ public class AuthService {
         String access = jwtService.generateAccessToken(
                 user.getUsername(),
                 Map.of(
-                        "uid", user.getId().toString(),
+                        "uid", userId.toString(),
                         "role", user.getRole(),
-                        "publicId", user.getPublicId()
+                        "publicId", publicId
                 ),
                 sid
         );
@@ -100,14 +134,14 @@ public class AuthService {
         auditLogService.log(
                 user,
                 UserAction.USER_CREATED,
-                user.getPublicId(), // actor = self
+                publicId,
                 sid,
                 ip,
                 device,
                 "Registered"
         );
 
-        return new AuthTokensResponse(access, refreshRaw, "Bearer", sid, user.getPublicId());
+        return new AuthTokensResponse(access, refreshRaw, "Bearer", sid, publicId);
     }
 
     @Transactional
@@ -116,12 +150,13 @@ public class AuthService {
         if (req.username() == null || req.username().isBlank()) throw Errors.badRequest("username is required");
         if (req.password() == null || req.password().isBlank()) throw Errors.badRequest("password is required");
 
-        User user = userRepository.findByUsernameAndDeletedAtIsNull(req.username())
+        User user = findActiveUserByUsername(req.username())
                 .orElseThrow(() -> Errors.unauthorized("Invalid credentials"));
 
         if (!user.isActive()) throw Errors.forbidden("User disabled");
-        if (!passwordEncoder.matches(req.password(), user.getPassword()))
+        if (!passwordEncoder.matches(req.password(), user.getPassword())) {
             throw Errors.unauthorized("Invalid credentials");
+        }
 
         String refreshRaw = generateRefreshRaw();
         String refreshHash = sha256(refreshRaw);
@@ -181,17 +216,16 @@ public class AuthService {
             return pid == null ? null : pid.toString();
         });
 
-        // revoke access token (blacklist)
         String jti = jwtService.extractJti(token);
         if (jti != null) redisTokenService.revokeAccessToken(jti);
 
         if (sid == null || uidStr == null) return;
 
         UUID uid = UUID.fromString(uidStr);
-
         sessionService.revokeSession(uid, sid);
 
-        userRepository.findByIdAndDeletedAtIsNull(uid).ifPresent(user ->
+
+        findActiveUserById(uid).ifPresent(user ->
                 auditLogService.log(
                         user,
                         UserAction.LOGOUT,
@@ -203,6 +237,7 @@ public class AuthService {
                 )
         );
     }
+
 
     @Transactional
     public AuthTokensResponse refresh(RefreshRequest req) {
@@ -225,22 +260,27 @@ public class AuthService {
 
         User user = old.getUser();
         if (user == null) throw Errors.tokenInvalid("Invalid refresh token");
-        if (!user.isActive()) throw Errors.forbidden("User disabled");
+
+
+        User dbUser = findActiveUserById(user.getId())
+                .orElseThrow(() -> Errors.tokenInvalid("User not found (deleted)"));
+
+        if (!dbUser.isActive()) throw Errors.forbidden("User disabled");
 
         old.setRevoked(true);
         refreshTokenRepository.save(old);
 
         String newRefreshRaw = generateRefreshRaw();
-        saveRefreshToken(user, newRefreshRaw);
+        saveRefreshToken(dbUser, newRefreshRaw);
 
         String sid = req.sessionId();
 
         String access = jwtService.generateAccessToken(
-                user.getUsername(),
+                dbUser.getUsername(),
                 Map.of(
-                        "uid", user.getId().toString(),
-                        "role", user.getRole(),
-                        "publicId", user.getPublicId()
+                        "uid", dbUser.getId().toString(),
+                        "role", dbUser.getRole(),
+                        "publicId", dbUser.getPublicId()
                 ),
                 sid
         );
@@ -249,16 +289,79 @@ public class AuthService {
         redisTokenService.storeAccessToken(jti, sid, jwtService.getAccessExpirationMs());
 
         auditLogService.log(
-                user,
+                dbUser,
                 UserAction.REFRESH,
-                user.getPublicId(),
+                dbUser.getPublicId(),
                 sid,
                 null,
                 null,
                 "Refresh token rotated"
         );
 
-        return new AuthTokensResponse(access, newRefreshRaw, "Bearer", sid, user.getPublicId());
+        return new AuthTokensResponse(access, newRefreshRaw, "Bearer", sid, dbUser.getPublicId());
+    }
+
+
+    private boolean existsActiveByUsername(String username) {
+        Integer x = jdbc.queryForObject("""
+            SELECT 1
+            FROM users
+            WHERE username = ?
+              AND deleted_at IS NULL
+            LIMIT 1
+        """, Integer.class, username);
+        return x != null;
+    }
+
+    private boolean existsActiveByEmail(String email) {
+        Integer x = jdbc.queryForObject("""
+            SELECT 1
+            FROM users
+            WHERE email = ?
+              AND deleted_at IS NULL
+            LIMIT 1
+        """, Integer.class, email);
+        return x != null;
+    }
+
+    private Optional<User> findActiveUserByUsername(String username) {
+        return jdbc.query("""
+            SELECT id, public_id, username, password, email, first_name, last_name, role, is_active
+            FROM users
+            WHERE username = ?
+              AND deleted_at IS NULL
+            LIMIT 1
+        """, rs -> {
+            if (!rs.next()) return Optional.empty();
+            return Optional.of(mapUser(rs));
+        }, username);
+    }
+
+    private Optional<User> findActiveUserById(UUID id) {
+        return jdbc.query("""
+            SELECT id, public_id, username, password, email, first_name, last_name, role, is_active
+            FROM users
+            WHERE id = ?
+              AND deleted_at IS NULL
+            LIMIT 1
+        """, rs -> {
+            if (!rs.next()) return Optional.empty();
+            return Optional.of(mapUser(rs));
+        }, id);
+    }
+
+    private static User mapUser(java.sql.ResultSet rs) throws java.sql.SQLException {
+        User u = new User();
+        u.setId(UUID.fromString(rs.getString("id")));
+        u.setPublicId(rs.getString("public_id"));
+        u.setUsername(rs.getString("username"));
+        u.setPassword(rs.getString("password"));
+        u.setEmail(rs.getString("email"));
+        u.setFirstName(rs.getString("first_name"));
+        u.setLastName(rs.getString("last_name"));
+        u.setRole(rs.getString("role"));
+        u.setActive(rs.getBoolean("is_active"));
+        return u;
     }
 
     private static String extractBearer(String header) {

@@ -21,7 +21,6 @@ public class JwtAuditorAware implements AuditorAware<String> {
             String publicId = jwt.getClaimAsString("publicId");
             if (publicId != null && !publicId.isBlank()) return Optional.of(publicId);
 
-            // fallback
             String sub = jwt.getSubject();
             return Optional.ofNullable(sub);
         }
