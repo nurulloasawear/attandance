@@ -4,10 +4,12 @@ import com.attendance.userservice.dto.*;
 import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.RefreshToken;
 import com.attendance.userservice.model.User;
+import com.attendance.userservice.model.audit.UserAction;
 import com.attendance.userservice.repository.RefreshTokenRepository;
 import com.attendance.userservice.repository.UserRepository;
 import com.attendance.userservice.security.JwtService;
 import com.attendance.userservice.security.RedisTokenService;
+import com.attendance.userservice.service.SessionService;
 import com.attendance.userservice.service.impl.PublicIdGeneratorImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,11 +36,18 @@ public class AuthService {
     private final RedisTokenService redisTokenService;
     private final PublicIdGeneratorImpl publicIdGenerator;
 
+    private final UserAuditLogService auditLogService;
+
     @Value("${security.jwt.refresh-expiration-ms}")
     private long refreshExpMs;
 
     @Transactional
     public AuthTokensResponse register(RegisterRequest req, String device, String ip) {
+        if (req == null) throw Errors.badRequest("body is required");
+        if (req.username() == null || req.username().isBlank()) throw Errors.badRequest("username is required");
+        if (req.email() == null || req.email().isBlank()) throw Errors.badRequest("email is required");
+        if (req.password() == null || req.password().isBlank()) throw Errors.badRequest("password is required");
+
         if (userRepository.existsByUsername(req.username())) {
             throw Errors.conflict("Username already exists", Map.of("username", req.username()));
         }
@@ -88,11 +97,23 @@ public class AuthService {
 
         saveRefreshToken(user, refreshRaw);
 
+        auditLogService.log(user, UserAction.USER_CREATED,
+                user.getPublicId(), // actor (сам себя создал)
+                sid, ip, device,
+                "Registered");
+
+        // ✅ Kafka event (если включишь)
+        // eventPublisher.publish(new UserEvent(...));
+
         return new AuthTokensResponse(access, refreshRaw, "Bearer", sid, user.getPublicId());
     }
 
     @Transactional
     public AuthTokensResponse login(LoginRequest req, String device, String ip) {
+        if (req == null) throw Errors.badRequest("body is required");
+        if (req.username() == null || req.username().isBlank()) throw Errors.badRequest("username is required");
+        if (req.password() == null || req.password().isBlank()) throw Errors.badRequest("password is required");
+
         User user = userRepository.findByUsername(req.username())
                 .orElseThrow(() -> Errors.unauthorized("Invalid credentials"));
 
@@ -131,6 +152,11 @@ public class AuthService {
 
         saveRefreshToken(user, refreshRaw);
 
+        auditLogService.log(user, UserAction.USER_UPDATED,
+                user.getPublicId(),
+                sid, ip, device,
+                "Login (new session created)");
+
         return new AuthTokensResponse(access, refreshRaw, "Bearer", sid, user.getPublicId());
     }
 
@@ -152,19 +178,28 @@ public class AuthService {
             return uid == null ? null : uid.toString();
         });
 
-        if (sid != null && uidStr != null) {
-            sessionService.revokeSession(UUID.fromString(uidStr), sid);
-        }
-    }
+        String publicId = jwtService.extractClaim(token, c -> {
+            Object pid = c.get("publicId");
+            return pid == null ? null : pid.toString();
+        });
 
-    private static String extractBearer(String header) {
-        if (header == null) return null;
-        if (!header.startsWith("Bearer ")) return null;
-        return header.substring(7);
+        if (sid != null && uidStr != null) {
+            UUID uid = UUID.fromString(uidStr);
+            sessionService.revokeSession(uid, sid);
+
+            userRepository.findById(uid).ifPresent(user ->
+                    auditLogService.log(user, UserAction.USER_UPDATED,
+                            publicId != null ? publicId : user.getPublicId(),
+                            sid, null, null,
+                            "Logout (session revoked)")
+            );
+        }
     }
 
     @Transactional
     public AuthTokensResponse refresh(RefreshRequest req) {
+        if (req == null) throw Errors.badRequest("body is required");
+
         if (req.refreshToken() == null || req.refreshToken().isBlank()) {
             throw Errors.badRequest("refreshToken is required");
         }
@@ -213,7 +248,18 @@ public class AuthService {
         String jti = jwtService.extractJti(access);
         redisTokenService.storeAccessToken(jti, sid, jwtService.getAccessExpirationMs());
 
+        auditLogService.log(user, UserAction.USER_UPDATED,
+                user.getPublicId(),
+                sid, null, null,
+                "Refresh token rotated");
+
         return new AuthTokensResponse(access, newRefreshRaw, "Bearer", sid, user.getPublicId());
+    }
+
+    private static String extractBearer(String header) {
+        if (header == null) return null;
+        if (!header.startsWith("Bearer ")) return null;
+        return header.substring(7);
     }
 
     private String generateRefreshRaw() {
