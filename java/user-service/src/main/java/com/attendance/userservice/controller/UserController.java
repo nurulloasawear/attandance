@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping(value = "/api/users", produces = "application/json")
 @RequiredArgsConstructor
 public class UserController {
 
@@ -37,9 +37,7 @@ public class UserController {
 
     @GetMapping("/me/profile")
     public ResponseEntity<UserDto> myProfile(@AuthenticationPrincipal Jwt jwt) {
-        if (jwt == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        if (jwt == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
         String myPublicId = jwt.getClaimAsString("uid");
         return ResponseEntity.ok(userService.getMyProfile(myPublicId));
@@ -52,9 +50,7 @@ public class UserController {
             @RequestParam(required = false) String password,
             HttpServletRequest request
     ) {
-        if (jwt == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+        if (jwt == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
         String myPublicId = jwt.getClaimAsString("uid");
         String sid = jwt.getClaimAsString("sid");

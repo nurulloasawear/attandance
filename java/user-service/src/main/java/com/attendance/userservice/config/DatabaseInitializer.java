@@ -1,405 +1,359 @@
 package com.attendance.userservice.config;
 
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Component
 @RequiredArgsConstructor
 public class DatabaseInitializer {
 
-    private final JdbcTemplate jdbcTemplate;
+    private final JdbcTemplate jdbc;
+    private final TransactionTemplate tx;
 
-    @PostConstruct
-    @Transactional
+    @EventListener(ApplicationReadyEvent.class)
     public void init() {
+        tx.executeWithoutResult(status -> {
+            safeExec("CREATE EXTENSION IF NOT EXISTS pgcrypto");
 
-        jdbcTemplate.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto");
+            safeExec("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
+                    public_id VARCHAR(8) NOT NULL,
+                    username VARCHAR(100) NOT NULL,
+                    password VARCHAR(255) NOT NULL,
+                    email VARCHAR(200) NOT NULL,
 
-        jdbcTemplate.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    first_name VARCHAR(100),
+                    last_name VARCHAR(100),
+                    role VARCHAR(50) NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT TRUE,
 
-                public_id VARCHAR(8) NOT NULL,
-                username VARCHAR(100) NOT NULL,
-                password VARCHAR(255) NOT NULL,
-                email VARCHAR(200) NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    deleted_at TIMESTAMPTZ NULL,
 
-                first_name VARCHAR(100),
-                last_name VARCHAR(100),
-                role VARCHAR(50) NOT NULL,
-                is_active BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_by VARCHAR(8),
+                    updated_by VARCHAR(8)
+                )
+            """);
 
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                deleted_at TIMESTAMPTZ NULL,
+            safeExec("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by VARCHAR(8)");
+            safeExec("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_by VARCHAR(8)");
+            safeExec("ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL");
 
-                created_by VARCHAR(8),
-                updated_by VARCHAR(8)
-            )
-        """);
-
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS public_id VARCHAR(8)");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(100)");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS password VARCHAR(255)");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(200)");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(100)");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(100)");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50)");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by VARCHAR(8)");
-        jdbcTemplate.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_by VARCHAR(8)");
-
-        jdbcTemplate.execute("""
-            DO $$
-            DECLARE c RECORD;
-            BEGIN
-                FOR c IN
-                    SELECT conname
-                    FROM pg_constraint con
-                    JOIN pg_class rel ON rel.oid = con.conrelid
-                    JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
-                    WHERE rel.relname = 'users'
-                      AND nsp.nspname = 'public'
-                      AND con.contype = 'u'
-                      AND (
-                          pg_get_constraintdef(con.oid) ILIKE '%(username)%'
-                          OR pg_get_constraintdef(con.oid) ILIKE '%(email)%'
-                          OR pg_get_constraintdef(con.oid) ILIKE '%(public_id)%'
-                      )
-                LOOP
-                    EXECUTE format('ALTER TABLE public.users DROP CONSTRAINT %I', c.conname);
-                END LOOP;
-            END $$;
-        """);
-
-        jdbcTemplate.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS ux_users_public_id_active
-            ON users (public_id)
-            WHERE deleted_at IS NULL
-        """);
-        jdbcTemplate.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS ux_users_username_active
-            ON users (username)
-            WHERE deleted_at IS NULL
-        """);
-        jdbcTemplate.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS ux_users_email_active
-            ON users (email)
-            WHERE deleted_at IS NULL
-        """);
-
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_users_deleted_at ON users (deleted_at)");
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_users_is_active ON users (is_active)");
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_users_created_at ON users (created_at DESC)");
-        jdbcTemplate.execute("""
-            CREATE INDEX IF NOT EXISTS ix_users_username_active_lookup
-            ON users (username)
-            WHERE deleted_at IS NULL
-        """);
-        jdbcTemplate.execute("""
-            CREATE INDEX IF NOT EXISTS ix_users_email_active_lookup
-            ON users (email)
-            WHERE deleted_at IS NULL
-        """);
-
-        // updated_at trigger
-        jdbcTemplate.execute("""
-            CREATE OR REPLACE FUNCTION set_updated_at()
-            RETURNS TRIGGER AS $$
-            BEGIN
-                NEW.updated_at = NOW();
-                RETURN NEW;
-            END;
-            $$ LANGUAGE plpgsql;
-        """);
-
-        jdbcTemplate.execute("""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_trigger WHERE tgname = 'trg_users_set_updated_at'
-                ) THEN
-                    CREATE TRIGGER trg_users_set_updated_at
-                    BEFORE UPDATE ON users
-                    FOR EACH ROW
-                    EXECUTE FUNCTION set_updated_at();
-                END IF;
-            END $$;
-        """);
-
-
-
-        jdbcTemplate.execute("""
-            CREATE TABLE IF NOT EXISTS refresh_tokens (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id UUID NOT NULL,
-                token_hash VARCHAR(255) NOT NULL UNIQUE,
-                expires_at TIMESTAMPTZ NOT NULL,
-                revoked BOOLEAN NOT NULL DEFAULT FALSE,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        """);
-
-        jdbcTemplate.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS user_id UUID");
-        jdbcTemplate.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS token_hash VARCHAR(255)");
-        jdbcTemplate.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ");
-        jdbcTemplate.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS revoked BOOLEAN NOT NULL DEFAULT FALSE");
-        jdbcTemplate.execute("ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
-
-        jdbcTemplate.execute("""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_refresh_tokens_user_id') THEN
-                    ALTER TABLE refresh_tokens
-                    ADD CONSTRAINT fk_refresh_tokens_user_id
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-                END IF;
-            END $$;
-        """);
-
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_refresh_tokens_user_id ON refresh_tokens (user_id)");
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_refresh_tokens_expires_at ON refresh_tokens (expires_at)");
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_refresh_tokens_revoked ON refresh_tokens (revoked)");
-
-
-
-        jdbcTemplate.execute("""
-            CREATE TABLE IF NOT EXISTS user_faces (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id UUID NOT NULL,
-
-                face_data BYTEA NOT NULL,
-                format VARCHAR(50) NOT NULL DEFAULT 'FACE_TEMPLATE_V1',
-                size_bytes BIGINT NOT NULL,
-
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        """);
-
-        jdbcTemplate.execute("ALTER TABLE user_faces ADD COLUMN IF NOT EXISTS user_id UUID");
-        jdbcTemplate.execute("ALTER TABLE user_faces ADD COLUMN IF NOT EXISTS face_data BYTEA");
-        jdbcTemplate.execute("ALTER TABLE user_faces ADD COLUMN IF NOT EXISTS size_bytes BIGINT");
-        jdbcTemplate.execute("ALTER TABLE user_faces ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
-        jdbcTemplate.execute("ALTER TABLE user_faces ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
-        jdbcTemplate.execute("ALTER TABLE user_faces ADD COLUMN IF NOT EXISTS format VARCHAR(50)");
-
-        jdbcTemplate.execute("""
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1
-                    FROM information_schema.columns
-                    WHERE table_schema='public'
-                      AND table_name='user_faces'
-                      AND column_name='content_type'
-                ) THEN
-                    BEGIN
-                        ALTER TABLE public.user_faces
-                            ALTER COLUMN content_type DROP NOT NULL;
-                    EXCEPTION WHEN others THEN
-                    END;
-
-                    BEGIN
-                        ALTER TABLE public.user_faces
-                            ALTER COLUMN content_type SET DEFAULT 'FACE_TEMPLATE_V1';
-                    EXCEPTION WHEN others THEN
-                        -- если уже есть default — игнор
-                    END;
-
-                    UPDATE public.user_faces
-                    SET content_type = 'FACE_TEMPLATE_V1'
-                    WHERE content_type IS NULL OR trim(content_type) = '';
-                END IF;
-            END $$;
-        """);
-
-
-        jdbcTemplate.execute("""
-            UPDATE user_faces
-            SET format = 'FACE_TEMPLATE_V1'
-            WHERE format IS NULL OR trim(format) = ''
-        """);
-
-        jdbcTemplate.execute("""
-            ALTER TABLE user_faces
-            ALTER COLUMN format SET DEFAULT 'FACE_TEMPLATE_V1'
-        """);
-
-        jdbcTemplate.execute("""
-            DO $$
-            BEGIN
+            safeExec("""
+                DO $$
+                DECLARE c RECORD;
                 BEGIN
-                    ALTER TABLE user_faces ALTER COLUMN format SET NOT NULL;
-                EXCEPTION WHEN others THEN
-                    -- если уже NOT NULL — игнор
+                    FOR c IN
+                        SELECT conname
+                        FROM pg_constraint con
+                        JOIN pg_class rel ON rel.oid = con.conrelid
+                        JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                        WHERE rel.relname = 'users'
+                          AND nsp.nspname = 'public'
+                          AND con.contype = 'u'
+                          AND (
+                              pg_get_constraintdef(con.oid) ILIKE '%(username)%'
+                              OR pg_get_constraintdef(con.oid) ILIKE '%(email)%'
+                              OR pg_get_constraintdef(con.oid) ILIKE '%(public_id)%'
+                          )
+                    LOOP
+                        EXECUTE format('ALTER TABLE public.users DROP CONSTRAINT %I', c.conname);
+                    END LOOP;
+                END $$;
+            """);
+
+            safeExec("""
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_users_public_id_active
+                ON users (public_id)
+                WHERE deleted_at IS NULL
+            """);
+            safeExec("""
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_users_username_active
+                ON users (username)
+                WHERE deleted_at IS NULL
+            """);
+            safeExec("""
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_users_email_active
+                ON users (email)
+                WHERE deleted_at IS NULL
+            """);
+
+            safeExec("CREATE INDEX IF NOT EXISTS ix_users_deleted_at ON users (deleted_at)");
+            safeExec("CREATE INDEX IF NOT EXISTS ix_users_is_active ON users (is_active)");
+            safeExec("CREATE INDEX IF NOT EXISTS ix_users_created_at ON users (created_at DESC)");
+            safeExec("""
+                CREATE INDEX IF NOT EXISTS ix_users_username_active_lookup
+                ON users (username)
+                WHERE deleted_at IS NULL
+            """);
+            safeExec("""
+                CREATE INDEX IF NOT EXISTS ix_users_email_active_lookup
+                ON users (email)
+                WHERE deleted_at IS NULL
+            """);
+
+            safeExec("""
+                CREATE OR REPLACE FUNCTION set_updated_at()
+                RETURNS TRIGGER AS $$
+                BEGIN
+                    NEW.updated_at = NOW();
+                    RETURN NEW;
                 END;
-            END $$;
-        """);
+                $$ LANGUAGE plpgsql;
+            """);
 
-        jdbcTemplate.execute("""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_constraint WHERE conname = 'ck_user_faces_format_allowed'
-                ) THEN
-                    ALTER TABLE user_faces
-                    ADD CONSTRAINT ck_user_faces_format_allowed
-                    CHECK (format IN ('FACE_TEMPLATE_V1'));
-                END IF;
-            END $$;
-        """);
+            safeExec("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_users_set_updated_at'
+                    ) THEN
+                        CREATE TRIGGER trg_users_set_updated_at
+                        BEFORE UPDATE ON users
+                        FOR EACH ROW
+                        EXECUTE FUNCTION set_updated_at();
+                    END IF;
+                END $$;
+            """);
 
-        jdbcTemplate.execute("""
-            DO $$
-            DECLARE c RECORD;
-            BEGIN
-                FOR c IN
-                    SELECT conname
-                    FROM pg_constraint con
-                    JOIN pg_class rel ON rel.oid = con.conrelid
-                    JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
-                    WHERE rel.relname = 'user_faces'
-                      AND nsp.nspname = 'public'
-                      AND con.contype = 'u'
-                      AND pg_get_constraintdef(con.oid) ILIKE '%(user_id)%'
-                LOOP
-                    EXECUTE format('ALTER TABLE public.user_faces DROP CONSTRAINT %I', c.conname);
-                END LOOP;
-            END $$;
-        """);
+            safeExec("""
+                CREATE TABLE IF NOT EXISTS refresh_tokens (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL,
+                    token_hash VARCHAR(255) NOT NULL UNIQUE,
+                    expires_at TIMESTAMPTZ NOT NULL,
+                    revoked BOOLEAN NOT NULL DEFAULT FALSE,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """);
 
-        jdbcTemplate.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS ux_user_faces_user_id
-            ON user_faces (user_id)
-        """);
+            safeExec("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_refresh_tokens_user_id') THEN
+                        ALTER TABLE refresh_tokens
+                        ADD CONSTRAINT fk_refresh_tokens_user_id
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+                    END IF;
+                END $$;
+            """);
 
-        jdbcTemplate.execute("""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_faces_user_id') THEN
-                    ALTER TABLE user_faces
-                    ADD CONSTRAINT fk_user_faces_user_id
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-                END IF;
-            END $$;
-        """);
+            safeExec("CREATE INDEX IF NOT EXISTS ix_refresh_tokens_user_id ON refresh_tokens (user_id)");
+            safeExec("CREATE INDEX IF NOT EXISTS ix_refresh_tokens_expires_at ON refresh_tokens (expires_at)");
+            safeExec("CREATE INDEX IF NOT EXISTS ix_refresh_tokens_revoked ON refresh_tokens (revoked)");
 
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS ix_user_faces_user_id ON user_faces (user_id)");
+            safeExec("""
+                CREATE TABLE IF NOT EXISTS user_faces (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL,
 
-        jdbcTemplate.execute("""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (
-                    SELECT 1 FROM pg_trigger WHERE tgname = 'trg_user_faces_set_updated_at'
-                ) THEN
-                    CREATE TRIGGER trg_user_faces_set_updated_at
-                    BEFORE UPDATE ON user_faces
-                    FOR EACH ROW
-                    EXECUTE FUNCTION set_updated_at();
-                END IF;
-            END $$;
-        """);
+                    face_data BYTEA NOT NULL,
+                    format VARCHAR(50) NOT NULL DEFAULT 'FACE_TEMPLATE_V1',
+                    size_bytes BIGINT NOT NULL,
 
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """);
 
+            safeExec("""
+                DO $$
+                BEGIN
+                    -- 1) если есть content_type и нет format -> переименуем
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public'
+                          AND table_name='user_faces'
+                          AND column_name='content_type'
+                    )
+                    AND NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public'
+                          AND table_name='user_faces'
+                          AND column_name='format'
+                    )
+                    THEN
+                        ALTER TABLE public.user_faces RENAME COLUMN content_type TO format;
+                    END IF;
 
-        jdbcTemplate.execute("""
-            CREATE TABLE IF NOT EXISTS user_audit_logs (
-                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    -- 2) если есть и format и content_type -> копируем значения в format, потом удаляем content_type
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public'
+                          AND table_name='user_faces'
+                          AND column_name='content_type'
+                    )
+                    AND EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public'
+                          AND table_name='user_faces'
+                          AND column_name='format'
+                    )
+                    THEN
+                        UPDATE public.user_faces
+                        SET format = content_type
+                        WHERE (format IS NULL OR trim(format) = '')
+                          AND (content_type IS NOT NULL AND trim(content_type) <> '');
 
-                user_id UUID NULL,
-                user_public_id VARCHAR(50),
+                        ALTER TABLE public.user_faces DROP COLUMN IF EXISTS content_type;
+                    END IF;
+                END $$;
+            """);
 
-                action VARCHAR(50),
-                actor VARCHAR(100),
-                sid VARCHAR(100),
+            safeExec("""
+                UPDATE user_faces
+                SET format = 'FACE_TEMPLATE_V1'
+                WHERE format IS NULL OR trim(format) = ''
+            """);
+            safeExec("ALTER TABLE user_faces ALTER COLUMN format SET DEFAULT 'FACE_TEMPLATE_V1'");
+            safeExec("""
+                DO $$
+                BEGIN
+                    BEGIN
+                        ALTER TABLE user_faces ALTER COLUMN format SET NOT NULL;
+                    EXCEPTION WHEN others THEN
+                    END;
+                END $$;
+            """);
 
-                ip VARCHAR(100),
-                device VARCHAR(255),
+            safeExec("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint WHERE conname = 'ck_user_faces_format_allowed'
+                    ) THEN
+                        ALTER TABLE user_faces
+                        ADD CONSTRAINT ck_user_faces_format_allowed
+                        CHECK (format IN ('FACE_TEMPLATE_V1'));
+                    END IF;
+                END $$;
+            """);
 
-                details TEXT,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-        """);
+            safeExec("""
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_user_faces_user_id
+                ON user_faces (user_id)
+            """);
 
-        jdbcTemplate.execute("""
-            DO $$
-            BEGIN
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='actor_public_id'
-                ) AND NOT EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='user_public_id'
-                ) THEN
-                    ALTER TABLE public.user_audit_logs RENAME COLUMN actor_public_id TO user_public_id;
-                END IF;
+            safeExec("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_faces_user_id') THEN
+                        ALTER TABLE user_faces
+                        ADD CONSTRAINT fk_user_faces_user_id
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+                    END IF;
+                END $$;
+            """);
 
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='session_id'
-                ) AND NOT EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='sid'
-                ) THEN
-                    ALTER TABLE public.user_audit_logs RENAME COLUMN session_id TO sid;
-                END IF;
+            safeExec("CREATE INDEX IF NOT EXISTS ix_user_faces_user_id ON user_faces (user_id)");
 
-                IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='message'
-                ) AND NOT EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='details'
-                ) THEN
-                    ALTER TABLE public.user_audit_logs RENAME COLUMN message TO details;
-                END IF;
-            END $$;
-        """);
+            safeExec("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_user_faces_set_updated_at'
+                    ) THEN
+                        CREATE TRIGGER trg_user_faces_set_updated_at
+                        BEFORE UPDATE ON user_faces
+                        FOR EACH ROW
+                        EXECUTE FUNCTION set_updated_at();
+                    END IF;
+                END $$;
+            """);
 
-        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS actor VARCHAR(100)");
-        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS sid VARCHAR(100)");
-        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS ip VARCHAR(100)");
-        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS device VARCHAR(255)");
-        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS details TEXT");
-        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()");
-        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS action VARCHAR(50)");
-        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS user_id UUID");
-        jdbcTemplate.execute("ALTER TABLE user_audit_logs ADD COLUMN IF NOT EXISTS user_public_id VARCHAR(50)");
+            safeExec("""
+                CREATE TABLE IF NOT EXISTS user_audit_logs (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
-        jdbcTemplate.execute("""
-            DO $$
-            BEGIN
-                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_audit_logs_user_id') THEN
-                    ALTER TABLE user_audit_logs
-                    ADD CONSTRAINT fk_user_audit_logs_user_id
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
-                END IF;
-            END $$;
-        """);
+                    user_id UUID NULL,
+                    user_public_id VARCHAR(50),
 
-        jdbcTemplate.execute("""
-            CREATE INDEX IF NOT EXISTS ix_user_audit_logs_user_id_created_at
-            ON user_audit_logs (user_id, created_at DESC)
-        """);
-        jdbcTemplate.execute("""
-            CREATE INDEX IF NOT EXISTS ix_user_audit_logs_action_created_at
-            ON user_audit_logs (action, created_at DESC)
-        """);
-        jdbcTemplate.execute("""
-            CREATE INDEX IF NOT EXISTS ix_user_audit_logs_user_public_id_created_at
-            ON user_audit_logs (user_public_id, created_at DESC)
-        """);
-        jdbcTemplate.execute("""
-            CREATE INDEX IF NOT EXISTS ix_user_audit_logs_sid_created_at
-            ON user_audit_logs (sid, created_at DESC)
-        """);
+                    action VARCHAR(50),
+                    actor VARCHAR(100),
+                    sid VARCHAR(100),
+
+                    ip VARCHAR(100),
+                    device VARCHAR(255),
+
+                    details TEXT,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """);
+
+            safeExec("""
+                DO $$
+                BEGIN
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='actor_public_id'
+                    ) AND NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='user_public_id'
+                    ) THEN
+                        ALTER TABLE public.user_audit_logs RENAME COLUMN actor_public_id TO user_public_id;
+                    END IF;
+
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='session_id'
+                    ) AND NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='sid'
+                    ) THEN
+                        ALTER TABLE public.user_audit_logs RENAME COLUMN session_id TO sid;
+                    END IF;
+
+                    IF EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='message'
+                    ) AND NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns
+                        WHERE table_schema='public' AND table_name='user_audit_logs' AND column_name='details'
+                    ) THEN
+                        ALTER TABLE public.user_audit_logs RENAME COLUMN message TO details;
+                    END IF;
+                END $$;
+            """);
+
+            // FK audit user_id
+            safeExec("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_audit_logs_user_id') THEN
+                        ALTER TABLE user_audit_logs
+                        ADD CONSTRAINT fk_user_audit_logs_user_id
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
+                    END IF;
+                END $$;
+            """);
+
+            safeExec("""
+                CREATE INDEX IF NOT EXISTS ix_user_audit_logs_user_id_created_at
+                ON user_audit_logs (user_id, created_at DESC)
+            """);
+            safeExec("""
+                CREATE INDEX IF NOT EXISTS ix_user_audit_logs_action_created_at
+                ON user_audit_logs (action, created_at DESC)
+            """);
+            safeExec("""
+                CREATE INDEX IF NOT EXISTS ix_user_audit_logs_user_public_id_created_at
+                ON user_audit_logs (user_public_id, created_at DESC)
+            """);
+            safeExec("""
+                CREATE INDEX IF NOT EXISTS ix_user_audit_logs_sid_created_at
+                ON user_audit_logs (sid, created_at DESC)
+            """);
+        });
+    }
+
+    private void safeExec(String sql) {
+        jdbc.execute(sql);
     }
 }

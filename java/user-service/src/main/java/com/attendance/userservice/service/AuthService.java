@@ -5,7 +5,6 @@ import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.RefreshToken;
 import com.attendance.userservice.model.User;
 import com.attendance.userservice.model.audit.UserAction;
-import com.attendance.userservice.service.UserAuditLogService;
 import com.attendance.userservice.repository.RefreshTokenRepository;
 import com.attendance.userservice.security.JwtService;
 import com.attendance.userservice.security.RedisTokenService;
@@ -30,19 +29,16 @@ import java.util.UUID;
 public class AuthService {
 
     private final JdbcTemplate jdbc;
-
-    private final RefreshTokenRepository refreshTokenRepository; // пока оставим как есть
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final SessionService sessionService;
     private final RedisTokenService redisTokenService;
     private final PublicIdGeneratorImpl publicIdGenerator;
-
     private final UserAuditLogService auditLogService;
 
     @Value("${security.jwt.refresh-expiration-ms}")
     private long refreshExpMs;
-
 
     @Transactional
     public AuthTokensResponse register(RegisterRequest req, String device, String ip) {
@@ -92,7 +88,6 @@ public class AuthService {
             throw Errors.internal("Failed to create user");
         }
 
-
         User user = new User();
         user.setId(userId);
         user.setPublicId(publicId);
@@ -119,7 +114,8 @@ public class AuthService {
         String access = jwtService.generateAccessToken(
                 user.getUsername(),
                 Map.of(
-                        "uid", userId.toString(),
+                        "uid", publicId,
+                        "userId", userId.toString(),
                         "role", user.getRole(),
                         "publicId", publicId
                 ),
@@ -173,7 +169,8 @@ public class AuthService {
         String access = jwtService.generateAccessToken(
                 user.getUsername(),
                 Map.of(
-                        "uid", user.getId().toString(),
+                        "uid", user.getPublicId(),
+                        "userId", user.getId().toString(),
                         "role", user.getRole(),
                         "publicId", user.getPublicId()
                 ),
@@ -206,30 +203,38 @@ public class AuthService {
 
         String sid = jwtService.extractSessionId(token);
 
-        String uidStr = jwtService.extractClaim(token, c -> {
-            Object uid = c.get("uid");
-            return uid == null ? null : uid.toString();
-        });
-
-        String publicId = jwtService.extractClaim(token, c -> {
-            Object pid = c.get("publicId");
-            return pid == null ? null : pid.toString();
-        });
-
         String jti = jwtService.extractJti(token);
         if (jti != null) redisTokenService.revokeAccessToken(jti);
 
-        if (sid == null || uidStr == null) return;
+        if (sid == null) return;
 
-        UUID uid = UUID.fromString(uidStr);
-        sessionService.revokeSession(uid, sid);
+        String userIdStr = jwtService.extractClaimString(token, "userId");
+        String publicId = jwtService.extractClaimString(token, "publicId");
+        if (publicId == null) publicId = jwtService.extractClaimString(token, "uid");
 
+        UUID userId = null;
 
-        findActiveUserById(uid).ifPresent(user ->
+        if (userIdStr != null) {
+            try {
+                userId = UUID.fromString(userIdStr);
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (userId == null && publicId != null) {
+            userId = findActiveUserIdByPublicId(publicId).orElse(null);
+        }
+
+        if (userId == null) return;
+
+        sessionService.revokeSession(userId, sid);
+
+        String finalPublicId = publicId;
+        findActiveUserById(userId).ifPresent(user ->
                 auditLogService.log(
                         user,
                         UserAction.LOGOUT,
-                        (publicId != null ? publicId : user.getPublicId()),
+                        (finalPublicId != null ? finalPublicId : user.getPublicId()),
                         sid,
                         null,
                         null,
@@ -237,7 +242,6 @@ public class AuthService {
                 )
         );
     }
-
 
     @Transactional
     public AuthTokensResponse refresh(RefreshRequest req) {
@@ -261,7 +265,6 @@ public class AuthService {
         User user = old.getUser();
         if (user == null) throw Errors.tokenInvalid("Invalid refresh token");
 
-
         User dbUser = findActiveUserById(user.getId())
                 .orElseThrow(() -> Errors.tokenInvalid("User not found (deleted)"));
 
@@ -278,7 +281,8 @@ public class AuthService {
         String access = jwtService.generateAccessToken(
                 dbUser.getUsername(),
                 Map.of(
-                        "uid", dbUser.getId().toString(),
+                        "uid", dbUser.getPublicId(),
+                        "userId", dbUser.getId().toString(),
                         "role", dbUser.getRole(),
                         "publicId", dbUser.getPublicId()
                 ),
@@ -301,37 +305,25 @@ public class AuthService {
         return new AuthTokensResponse(access, newRefreshRaw, "Bearer", sid, dbUser.getPublicId());
     }
 
-
     private boolean existsActiveByUsername(String username) {
         return !jdbc.queryForList("""
-        SELECT 1
-        FROM users
-        WHERE username = ?
-          AND deleted_at IS NULL
-        LIMIT 1
-    """, Integer.class, username).isEmpty();
+            SELECT 1
+            FROM users
+            WHERE username = ?
+              AND deleted_at IS NULL
+            LIMIT 1
+        """, Integer.class, username).isEmpty();
     }
 
     private boolean existsActiveByEmail(String email) {
         return !jdbc.queryForList("""
-        SELECT 1
-        FROM users
-        WHERE email = ?
-          AND deleted_at IS NULL
-        LIMIT 1
-    """, Integer.class, email).isEmpty();
+            SELECT 1
+            FROM users
+            WHERE email = ?
+              AND deleted_at IS NULL
+            LIMIT 1
+        """, Integer.class, email).isEmpty();
     }
-
-    private boolean existsByPublicId(String publicId) {
-        return !jdbc.queryForList("""
-        SELECT 1
-        FROM users
-        WHERE public_id = ?
-        LIMIT 1
-    """, Integer.class, publicId).isEmpty();
-    }
-
-
 
     private Optional<User> findActiveUserByUsername(String username) {
         return jdbc.query("""
@@ -357,6 +349,19 @@ public class AuthService {
             if (!rs.next()) return Optional.empty();
             return Optional.of(mapUser(rs));
         }, id);
+    }
+
+    private Optional<UUID> findActiveUserIdByPublicId(String publicId) {
+        return jdbc.query("""
+            SELECT id
+            FROM users
+            WHERE public_id = ?
+              AND deleted_at IS NULL
+            LIMIT 1
+        """, rs -> {
+            if (!rs.next()) return Optional.empty();
+            return Optional.of(UUID.fromString(rs.getString("id")));
+        }, publicId);
     }
 
     private static User mapUser(java.sql.ResultSet rs) throws java.sql.SQLException {
