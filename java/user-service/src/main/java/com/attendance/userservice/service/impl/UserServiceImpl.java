@@ -5,6 +5,8 @@ import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.User;
 import com.attendance.userservice.model.audit.UserAction;
 import com.attendance.userservice.repository.UserRepository;
+import com.attendance.userservice.security.RoleType;
+import com.attendance.userservice.service.IUserService;
 import com.attendance.userservice.service.UserAuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -12,13 +14,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class UserServiceImpl implements com.attendance.userservice.service.IUserService {
+public class UserServiceImpl implements IUserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -28,30 +31,105 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
     private final UserAuditLogService audit;
 
     @Override
+    public UserDto getMyProfile(String myPublicId) {
+        if (myPublicId == null || myPublicId.isBlank()) {
+            throw Errors.badRequest("publicId is required");
+        }
+        return getUserByPublicId(myPublicId);
+    }
+
+    @Override
+    @Transactional
+    public UserDto updateMyProfile(
+            String myPublicId,
+            UserDto dto,
+            String rawPassword,
+            String sessionId,
+            String ip,
+            String device
+    ) {
+        if (myPublicId == null || myPublicId.isBlank()) {
+            throw Errors.badRequest("publicId is required");
+        }
+        if (dto == null) {
+            throw Errors.badRequest("body is required");
+        }
+
+        dto.setUsername(null);
+        dto.setEmail(null);
+        dto.setRole(null);
+
+        // actor = он сам
+        return updateUserByPublicId(
+                myPublicId,
+                dto,
+                rawPassword,
+                myPublicId,
+                sessionId,
+                ip,
+                device
+        );
+    }
+
+    @Override
+    @Transactional
+    public void deleteMyAccount(
+            String myPublicId,
+            String sessionId,
+            String ip,
+            String device
+    ) {
+        if (myPublicId == null || myPublicId.isBlank()) {
+            throw Errors.badRequest("publicId is required");
+        }
+
+        // ✅ soft delete уже логируется внутри deleteUserByPublicId
+        deleteUserByPublicId(myPublicId);
+
+        // 💡 если хочешь отдельно логировать как "self delete" — можно так:
+    /*
+    User user = userRepository.findByPublicIdAndDeletedAtIsNull(myPublicId)
+            .orElse(null);
+    if (user != null) {
+        audit.log(user, UserAction.USER_DELETED, myPublicId, sessionId, ip, device, "User deleted own account");
+    }
+    */
+    }
+
+    @Override
     @Transactional
     public UserDto createUser(UserDto dto, String rawPassword) {
-        if (dto == null) throw Errors.badRequest("body is required");
-        if (dto.getUsername() == null || dto.getUsername().isBlank()) throw Errors.badRequest("username is required");
-        if (dto.getEmail() == null || dto.getEmail().isBlank()) throw Errors.badRequest("email is required");
-        if (rawPassword == null || rawPassword.isBlank()) throw Errors.badRequest("password is required");
 
-        if (userRepository.existsByUsernameAndDeletedAtIsNull(dto.getUsername())) {
-            throw Errors.conflict("Username already exists", Map.of("username", dto.getUsername()));
+        if (dto == null) throw Errors.badRequest("body is required");
+        require(dto.getUsername(), "username is required");
+        require(dto.getEmail(), "email is required");
+        require(rawPassword, "password is required");
+
+        String username = dto.getUsername().trim();
+        String email = dto.getEmail().trim();
+
+        if (username.isBlank()) throw Errors.badRequest("username is required");
+        if (email.isBlank()) throw Errors.badRequest("email is required");
+
+        String role = normalizeRole(dto.getRole());
+
+        if (userRepository.existsByUsernameAndDeletedAtIsNull(username)) {
+            throw Errors.conflict("Username already exists", Map.of("username", username));
         }
-        if (userRepository.existsByEmailAndDeletedAtIsNull(dto.getEmail())) {
-            throw Errors.conflict("Email already exists", Map.of("email", dto.getEmail()));
+        if (userRepository.existsByEmailAndDeletedAtIsNull(email)) {
+            throw Errors.conflict("Email already exists", Map.of("email", email));
         }
 
         String publicId = publicIdGenerator.generateUnique();
 
         User user = User.builder()
                 .publicId(publicId)
-                .username(dto.getUsername())
-                .email(dto.getEmail())
+                .username(username)
+                .email(email)
                 .password(passwordEncoder.encode(rawPassword))
                 .firstName(dto.getFirstName())
                 .lastName(dto.getLastName())
-                .role(dto.getRole())
+                .role(role)
                 .active(true)
                 .build();
 
@@ -60,7 +138,7 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
         audit.log(
                 saved,
                 UserAction.USER_CREATED,
-                saved.getPublicId(),
+                saved.getPublicId(), // actor (пока сам user)
                 null,
                 null,
                 null,
@@ -69,6 +147,7 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
 
         return mapToDto(saved);
     }
+
 
 
     @Override
@@ -82,18 +161,18 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
 
     @Override
     public UserDto getUserByUsername(String username) {
-        if (username == null || username.isBlank()) throw Errors.badRequest("username is required");
+        require(username, "username is required");
 
-        return userRepository.findByUsernameAndDeletedAtIsNull(username)
+        return userRepository.findByUsernameAndDeletedAtIsNull(username.trim())
                 .map(this::mapToDto)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
     }
 
     @Override
     public UserDto getUserByPublicId(String publicId) {
-        if (publicId == null || publicId.isBlank()) throw Errors.badRequest("publicId is required");
+        require(publicId, "publicId is required");
 
-        return userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
+        return userRepository.findByPublicIdAndDeletedAtIsNull(publicId.trim())
                 .map(this::mapToDto)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
     }
@@ -111,22 +190,21 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
 
     @Override
     public String getUserRoleByUsername(String username) {
-        if (username == null || username.isBlank()) throw Errors.badRequest("username is required");
+        require(username, "username is required");
 
-        return userRepository.findByUsernameAndDeletedAtIsNull(username)
+        return userRepository.findByUsernameAndDeletedAtIsNull(username.trim())
                 .map(User::getRole)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
     }
 
     @Override
     public String getUserRoleByPublicId(String publicId) {
-        if (publicId == null || publicId.isBlank()) throw Errors.badRequest("publicId is required");
+        require(publicId, "publicId is required");
 
-        return userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
+        return userRepository.findByPublicIdAndDeletedAtIsNull(publicId.trim())
                 .map(User::getRole)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
     }
-
 
 
     @Override
@@ -153,9 +231,9 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
     @Override
     @Transactional
     public void deleteUserByUsername(String username) {
-        if (username == null || username.isBlank()) throw Errors.badRequest("username is required");
+        require(username, "username is required");
 
-        User user = userRepository.findByUsernameAndDeletedAtIsNull(username)
+        User user = userRepository.findByUsernameAndDeletedAtIsNull(username.trim())
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
 
         softDeleteById(user.getId());
@@ -171,9 +249,9 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
     @Override
     @Transactional
     public void deleteUserByEmail(String email) {
-        if (email == null || email.isBlank()) throw Errors.badRequest("email is required");
+        require(email, "email is required");
 
-        User user = userRepository.findByEmailAndDeletedAtIsNull(email)
+        User user = userRepository.findByEmailAndDeletedAtIsNull(email.trim())
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("email", email)));
 
         softDeleteById(user.getId());
@@ -186,12 +264,12 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
         );
     }
 
-    @Transactional
     @Override
+    @Transactional
     public void deleteUserByPublicId(String publicId) {
-        if (publicId == null || publicId.isBlank()) throw Errors.badRequest("publicId is required");
+        require(publicId, "publicId is required");
 
-        User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
+        User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId.trim())
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
 
         softDeleteById(user.getId());
@@ -206,12 +284,12 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
 
 
 
-    @Transactional
     @Override
+    @Transactional
     public void deactivateUserByPublicId(String publicId, String actorPublicId, String sessionId, String ip, String device) {
-        if (publicId == null || publicId.isBlank()) throw Errors.badRequest("publicId is required");
+        require(publicId, "publicId is required");
 
-        User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
+        User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId.trim())
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
 
         int updated = jdbc.update("""
@@ -239,25 +317,10 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
         );
     }
 
-    private void softDeleteById(UUID id) {
-        int updated = jdbc.update("""
-            UPDATE users
-            SET deleted_at = NOW(),
-                is_active = FALSE,
-                updated_at = NOW()
-            WHERE id = ?
-              AND deleted_at IS NULL
-        """, id);
-
-        if (updated == 0) {
-            throw Errors.conflict("User already deleted", Map.of("id", id.toString()));
-        }
-    }
 
 
-
-    @Transactional
     @Override
+    @Transactional
     public UserDto updateUserByPublicId(
             String publicId,
             UserDto dto,
@@ -267,14 +330,10 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
             String ip,
             String device
     ) {
-        if (publicId == null || publicId.isBlank()) {
-            throw Errors.badRequest("publicId is required");
-        }
-        if (dto == null) {
-            throw Errors.badRequest("body is required");
-        }
+        require(publicId, "publicId is required");
+        if (dto == null) throw Errors.badRequest("body is required");
 
-        User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
+        User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId.trim())
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
 
         boolean changed = false;
@@ -292,6 +351,7 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
             changed = true;
         }
 
+
         if (dto.getEmail() != null) {
             String newEmail = dto.getEmail().trim();
             if (newEmail.isBlank()) throw Errors.badRequest("email cannot be blank");
@@ -305,20 +365,21 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
             changed = true;
         }
 
+
         if (dto.getFirstName() != null) {
             user.setFirstName(dto.getFirstName());
             changed = true;
         }
-
         if (dto.getLastName() != null) {
             user.setLastName(dto.getLastName());
             changed = true;
         }
 
         if (dto.getRole() != null) {
-            user.setRole(dto.getRole());
+            user.setRole(normalizeRole(dto.getRole()));
             changed = true;
         }
+
 
         if (rawPassword != null && !rawPassword.isBlank()) {
             user.setPassword(passwordEncoder.encode(rawPassword));
@@ -344,6 +405,50 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
         );
 
         return mapToDto(saved);
+    }
+
+
+    private void softDeleteById(UUID id) {
+        int updated = jdbc.update("""
+            UPDATE users
+            SET deleted_at = NOW(),
+                is_active = FALSE,
+                updated_at = NOW()
+            WHERE id = ?
+              AND deleted_at IS NULL
+        """, id);
+
+        if (updated == 0) {
+            throw Errors.conflict("User already deleted", Map.of("id", id.toString()));
+        }
+    }
+
+    private static void require(String value, String message) {
+        if (value == null || value.isBlank()) throw Errors.badRequest(message);
+    }
+
+    private static String normalizeRole(String role) {
+        if (role == null || role.isBlank()) {
+            return RoleType.ROLE_EMPLOYEE.name();
+        }
+
+        String r = role.trim().toUpperCase();
+
+        boolean ok = Arrays.stream(RoleType.values())
+                .map(Enum::name)
+                .anyMatch(x -> x.equals(r));
+
+        if (!ok) {
+            throw Errors.validation(
+                    "Invalid role",
+                    Map.of(
+                            "provided", r,
+                            "allowed", Arrays.stream(RoleType.values()).map(Enum::name).toList()
+                    )
+            );
+        }
+
+        return r;
     }
 
     private UserDto mapToDto(User user) {

@@ -59,6 +59,15 @@ public final class Errors {
         );
     }
 
+    public static ApiException forbidden(String msg, Map<String, Object> details) {
+        return new ApiException(
+                HttpStatus.FORBIDDEN,
+                ErrorCode.FORBIDDEN,
+                msg,
+                details
+        );
+    }
+
     public static ApiException tokenInvalid(String msg) {
         return new ApiException(
                 HttpStatus.UNAUTHORIZED,

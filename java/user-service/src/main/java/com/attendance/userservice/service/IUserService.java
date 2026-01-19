@@ -21,6 +21,23 @@ public interface IUserService {
     String getUserRoleByUsername(String username);
 
     String getUserRoleByPublicId(String publicId);
+    UserDto getMyProfile(String myPublicId);
+
+    UserDto updateMyProfile(
+            String myPublicId,
+            UserDto dto,
+            String rawPassword,
+            String sessionId,
+            String ip,
+            String device
+    );
+
+    void deleteMyAccount(
+            String myPublicId,
+            String sessionId,
+            String ip,
+            String device
+    );
 
 
     UserDto updateUserByPublicId(

@@ -19,7 +19,6 @@ public class UserFaceController {
 
     private final UserFaceService userFaceService;
 
-    // ✅ CREATE (JSON + Base64)
     @PostMapping(
             value = "/{publicId}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
