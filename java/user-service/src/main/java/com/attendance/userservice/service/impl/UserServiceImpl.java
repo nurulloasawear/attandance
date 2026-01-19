@@ -57,22 +57,24 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
 
         User saved = userRepository.save(user);
 
-        // ✅ Новый формат аудита: 7 аргументов
         audit.log(
                 saved,
                 UserAction.USER_CREATED,
-                saved.getPublicId(), // actor (кто создал) — пока сам user
-                null,                // sid
-                null,                // ip
-                null,                // device
+                saved.getPublicId(), // actor (пока сам user)
+                null,
+                null,
+                null,
                 "User created"
         );
 
         return mapToDto(saved);
     }
 
+
     @Override
     public UserDto getUserById(UUID id) {
+        if (id == null) throw Errors.badRequest("id is required");
+
         return userRepository.findByIdAndDeletedAtIsNull(id)
                 .map(this::mapToDto)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("id", id.toString())));
@@ -80,13 +82,28 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
 
     @Override
     public UserDto getUserByUsername(String username) {
+        if (username == null || username.isBlank()) throw Errors.badRequest("username is required");
+
         return userRepository.findByUsernameAndDeletedAtIsNull(username)
                 .map(this::mapToDto)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
     }
 
     @Override
+    public UserDto getUserByPublicId(String publicId) {
+        if (publicId == null || publicId.isBlank()) throw Errors.badRequest("publicId is required");
+
+        return userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
+                .map(this::mapToDto)
+                .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
+    }
+
+
+
+    @Override
     public String getUserRoleById(UUID id) {
+        if (id == null) throw Errors.badRequest("id is required");
+
         return userRepository.findByIdAndDeletedAtIsNull(id)
                 .map(User::getRole)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("id", id.toString())));
@@ -94,14 +111,29 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
 
     @Override
     public String getUserRoleByUsername(String username) {
+        if (username == null || username.isBlank()) throw Errors.badRequest("username is required");
+
         return userRepository.findByUsernameAndDeletedAtIsNull(username)
                 .map(User::getRole)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
     }
 
     @Override
+    public String getUserRoleByPublicId(String publicId) {
+        if (publicId == null || publicId.isBlank()) throw Errors.badRequest("publicId is required");
+
+        return userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
+                .map(User::getRole)
+                .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
+    }
+
+
+
+    @Override
     @Transactional
     public void deleteUserById(UUID id) {
+        if (id == null) throw Errors.badRequest("id is required");
+
         User user = userRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("id", id.toString())));
 
@@ -110,10 +142,10 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
         audit.log(
                 user,
                 UserAction.USER_DELETED,
-                null,   // actor public id (если нет — null)
-                null,   // sid
-                null,   // ip
-                null,   // device
+                null,
+                null,
+                null,
+                null,
                 "Soft deleted user"
         );
     }
@@ -121,6 +153,8 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
     @Override
     @Transactional
     public void deleteUserByUsername(String username) {
+        if (username == null || username.isBlank()) throw Errors.badRequest("username is required");
+
         User user = userRepository.findByUsernameAndDeletedAtIsNull(username)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("username", username)));
 
@@ -137,6 +171,8 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
     @Override
     @Transactional
     public void deleteUserByEmail(String email) {
+        if (email == null || email.isBlank()) throw Errors.badRequest("email is required");
+
         User user = userRepository.findByEmailAndDeletedAtIsNull(email)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("email", email)));
 
@@ -151,7 +187,30 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
     }
 
     @Transactional
+    @Override
+    public void deleteUserByPublicId(String publicId) {
+        if (publicId == null || publicId.isBlank()) throw Errors.badRequest("publicId is required");
+
+        User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
+                .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
+
+        softDeleteById(user.getId());
+
+        audit.log(
+                user,
+                UserAction.USER_DELETED,
+                null, null, null, null,
+                "Soft deleted user by publicId"
+        );
+    }
+
+
+
+    @Transactional
+    @Override
     public void deactivateUserByPublicId(String publicId, String actorPublicId, String sessionId, String ip, String device) {
+        if (publicId == null || publicId.isBlank()) throw Errors.badRequest("publicId is required");
+
         User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
 

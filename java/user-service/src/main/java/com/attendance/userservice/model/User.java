@@ -1,30 +1,36 @@
 package com.attendance.userservice.model;
 
-import com.attendance.userservice.model.base.BaseAuditEntity;
+import com.attendance.userservice.model.audit.AuditableEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
 
-import java.time.Instant;
+import java.util.UUID;
 
+@Getter @Setter
+@NoArgsConstructor @AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "users")
-@Getter @Setter
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class User extends BaseAuditEntity {
+@SQLDelete(sql = "UPDATE users SET deleted_at = NOW(), is_active = FALSE, updated_at = NOW() WHERE id = ?")
+@Where(clause = "deleted_at IS NULL")
+public class User extends AuditableEntity {
 
-    @Column(name = "public_id", length = 8, nullable = false)
+    @Id
+    @Column(name = "id")
+    private UUID id;
+
+    @Column(name = "public_id", nullable = false, unique = true, length = 8)
     private String publicId;
 
-    @Column(name = "username", length = 100, nullable = false)
+    @Column(name = "username", nullable = false, unique = true, length = 100)
     private String username;
 
-    @Column(name = "password", length = 255, nullable = false)
+    @Column(name = "password", nullable = false, length = 255)
     private String password;
 
-    @Column(name = "email", length = 200, nullable = false)
+    @Column(name = "email", nullable = false, unique = true, length = 200)
     private String email;
 
     @Column(name = "first_name", length = 100)
@@ -33,14 +39,9 @@ public class User extends BaseAuditEntity {
     @Column(name = "last_name", length = 100)
     private String lastName;
 
-    @Column(name = "role", length = 50, nullable = false)
+    @Column(name = "role", nullable = false, length = 50)
     private String role;
 
     @Column(name = "is_active", nullable = false)
     private boolean active;
-
-    @Column(name = "deleted_at")
-    private Instant deletedAt;
-
 }
-

@@ -18,11 +18,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserFaceService {
 
+
     private static final Set<String> ALLOWED_FORMATS = Set.of(
             "FACE_TEMPLATE_V1"
     );
 
-    private static final int MAX_BYTES = 256_000; // 256 KB
+    private static final int MAX_BYTES = 256_000;
 
     private final UserRepository userRepository;
     private final UserFaceRepository userFaceRepository;
@@ -108,10 +109,19 @@ public class UserFaceService {
     }
 
     private static void validate(byte[] bytes, String format) {
+
         if (bytes == null || bytes.length == 0) {
             throw Errors.validation(
                     "Face template is empty",
                     Map.of("size", 0)
+            );
+        }
+
+        // ✅ Запрещаем PNG/JPG и другие картинки
+        if (isImage(bytes)) {
+            throw Errors.validation(
+                    "Image files (PNG/JPG) are not supported. Send only binary face template data",
+                    Map.of("hint", "Send face template bytes, not image file")
             );
         }
 
@@ -140,5 +150,29 @@ public class UserFaceService {
     private static String normalizeFormat(String format) {
         if (format == null || format.isBlank()) return "FACE_TEMPLATE_V1";
         return format.trim().toUpperCase();
+    }
+
+
+    private static boolean isImage(byte[] bytes) {
+        return isPng(bytes) || isJpeg(bytes);
+    }
+
+    private static boolean isPng(byte[] b) {
+        if (b.length < 8) return false;
+        return (b[0] == (byte) 0x89 &&
+                b[1] == (byte) 0x50 &&
+                b[2] == (byte) 0x4E &&
+                b[3] == (byte) 0x47 &&
+                b[4] == (byte) 0x0D &&
+                b[5] == (byte) 0x0A &&
+                b[6] == (byte) 0x1A &&
+                b[7] == (byte) 0x0A);
+    }
+
+    private static boolean isJpeg(byte[] b) {
+        if (b.length < 3) return false;
+        return (b[0] == (byte) 0xFF &&
+                b[1] == (byte) 0xD8 &&
+                b[2] == (byte) 0xFF);
     }
 }
