@@ -4,7 +4,7 @@ import com.attendance.userservice.model.audit.AuditableEntity;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
-import org.hibernate.annotations.Where;
+
 
 import java.util.UUID;
 
@@ -14,7 +14,6 @@ import java.util.UUID;
 @Entity
 @Table(name = "users")
 @SQLDelete(sql = "UPDATE users SET deleted_at = NOW(), is_active = FALSE, updated_at = NOW() WHERE id = ?")
-@Where(clause = "deleted_at IS NULL")
 public class User extends AuditableEntity {
 
     @Id

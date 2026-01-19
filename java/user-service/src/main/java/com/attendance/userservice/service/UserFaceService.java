@@ -117,7 +117,6 @@ public class UserFaceService {
             );
         }
 
-        // ✅ Запрещаем PNG/JPG и другие картинки
         if (isImage(bytes)) {
             throw Errors.validation(
                     "Image files (PNG/JPG) are not supported. Send only binary face template data",

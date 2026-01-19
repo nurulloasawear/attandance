@@ -195,16 +195,32 @@ public class DatabaseInitializer {
             DO $$
             BEGIN
                 IF EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema='public' AND table_name='user_faces' AND column_name='content_type'
-                ) AND NOT EXISTS (
-                    SELECT 1 FROM information_schema.columns
-                    WHERE table_schema='public' AND table_name='user_faces' AND column_name='format'
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_schema='public'
+                      AND table_name='user_faces'
+                      AND column_name='content_type'
                 ) THEN
-                    ALTER TABLE public.user_faces RENAME COLUMN content_type TO format;
+                    BEGIN
+                        ALTER TABLE public.user_faces
+                            ALTER COLUMN content_type DROP NOT NULL;
+                    EXCEPTION WHEN others THEN
+                    END;
+
+                    BEGIN
+                        ALTER TABLE public.user_faces
+                            ALTER COLUMN content_type SET DEFAULT 'FACE_TEMPLATE_V1';
+                    EXCEPTION WHEN others THEN
+                        -- если уже есть default — игнор
+                    END;
+
+                    UPDATE public.user_faces
+                    SET content_type = 'FACE_TEMPLATE_V1'
+                    WHERE content_type IS NULL OR trim(content_type) = '';
                 END IF;
             END $$;
         """);
+
 
         jdbcTemplate.execute("""
             UPDATE user_faces

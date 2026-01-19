@@ -60,7 +60,7 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
         audit.log(
                 saved,
                 UserAction.USER_CREATED,
-                saved.getPublicId(), // actor (пока сам user)
+                saved.getPublicId(),
                 null,
                 null,
                 null,
@@ -252,6 +252,98 @@ public class UserServiceImpl implements com.attendance.userservice.service.IUser
         if (updated == 0) {
             throw Errors.conflict("User already deleted", Map.of("id", id.toString()));
         }
+    }
+
+
+
+    @Transactional
+    @Override
+    public UserDto updateUserByPublicId(
+            String publicId,
+            UserDto dto,
+            String rawPassword,
+            String actorPublicId,
+            String sessionId,
+            String ip,
+            String device
+    ) {
+        if (publicId == null || publicId.isBlank()) {
+            throw Errors.badRequest("publicId is required");
+        }
+        if (dto == null) {
+            throw Errors.badRequest("body is required");
+        }
+
+        User user = userRepository.findByPublicIdAndDeletedAtIsNull(publicId)
+                .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
+
+        boolean changed = false;
+
+        if (dto.getUsername() != null) {
+            String newUsername = dto.getUsername().trim();
+            if (newUsername.isBlank()) throw Errors.badRequest("username cannot be blank");
+
+            if (!newUsername.equals(user.getUsername())
+                    && userRepository.existsByUsernameAndDeletedAtIsNull(newUsername)) {
+                throw Errors.conflict("Username already exists", Map.of("username", newUsername));
+            }
+
+            user.setUsername(newUsername);
+            changed = true;
+        }
+
+        if (dto.getEmail() != null) {
+            String newEmail = dto.getEmail().trim();
+            if (newEmail.isBlank()) throw Errors.badRequest("email cannot be blank");
+
+            if (!newEmail.equals(user.getEmail())
+                    && userRepository.existsByEmailAndDeletedAtIsNull(newEmail)) {
+                throw Errors.conflict("Email already exists", Map.of("email", newEmail));
+            }
+
+            user.setEmail(newEmail);
+            changed = true;
+        }
+
+        if (dto.getFirstName() != null) {
+            user.setFirstName(dto.getFirstName());
+            changed = true;
+        }
+
+        if (dto.getLastName() != null) {
+            user.setLastName(dto.getLastName());
+            changed = true;
+        }
+
+        if (dto.getRole() != null) {
+            user.setRole(dto.getRole());
+            changed = true;
+        }
+
+        if (rawPassword != null && !rawPassword.isBlank()) {
+            user.setPassword(passwordEncoder.encode(rawPassword));
+            changed = true;
+        }
+
+        if (!changed) {
+            return mapToDto(user);
+        }
+
+        user.setUpdatedBy(actorPublicId);
+
+        User saved = userRepository.save(user);
+
+        audit.log(
+                saved,
+                UserAction.USER_UPDATED,
+                actorPublicId,
+                sessionId,
+                ip,
+                device,
+                "User updated"
+        );
+
+        return mapToDto(saved);
     }
 
     private UserDto mapToDto(User user) {
