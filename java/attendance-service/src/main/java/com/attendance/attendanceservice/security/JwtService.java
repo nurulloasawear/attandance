@@ -21,7 +21,7 @@ public class JwtService {
             throw new IllegalStateException("security.jwt.secret is required");
         }
 
-        // ✅ HS256 key must be >= 32 bytes
+
         byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
 
         if (bytes.length < 32) {
@@ -33,38 +33,30 @@ public class JwtService {
         this.key = Keys.hmacShaKeyFor(bytes);
     }
 
-    /**
-     * ✅ Проверка токена (подпись + срок действия)
-     */
+
     public boolean isValid(String token) {
         try {
             Claims claims = parseClaims(token);
             Date exp = claims.getExpiration();
-            if (exp == null) return true; // если exp нет - считаем валидным
+            if (exp == null) return true;
             return exp.toInstant().isAfter(Instant.now());
         } catch (Exception e) {
             return false;
         }
     }
 
-    /**
-     * ✅ Subject = username
-     */
+
     public String extractSubject(String token) {
         return parseClaims(token).getSubject();
     }
 
-    /**
-     * ✅ Получить claim как String
-     */
+
     public String extractClaimString(String token, String name) {
         Object v = parseClaims(token).get(name);
         return (v == null) ? null : String.valueOf(v);
     }
 
-    /**
-     * ✅ Внутренний парсер
-     */
+
     private Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)

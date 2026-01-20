@@ -61,10 +61,8 @@ services:
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
 
-      # ✅ тот же секрет, чтобы access token валидировался и здесь
       SECURITY_JWT_SECRET: +i38C96CqmxwIheqUXRKPHpO/07bWCgLE2SnYJgOQl4=
 
-      # ✅ URL user-service если attendance-service будет вызывать user-service (проверка publicId)
       USER_SERVICE_URL: http://user-service:8080
     depends_on:
       postgres:
