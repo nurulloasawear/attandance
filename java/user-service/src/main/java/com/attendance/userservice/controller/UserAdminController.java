@@ -1,25 +1,34 @@
 package com.attendance.userservice.controller;
 
 import com.attendance.commonlib.dto.UserDto;
+import com.attendance.userservice.dto.DeviceDto;
 import com.attendance.userservice.security.RoleType;
 import com.attendance.userservice.service.IUserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@PreAuthorize("hasAuthority('ROLE_ADMIN')")
 @RestController
 @RequestMapping("/api/admin/users")
 @RequiredArgsConstructor
 public class UserAdminController {
 
     private final IUserService userService;
+
+    @GetMapping
+    public ResponseEntity<List<UserDto>> getAllUsers() {
+        return ResponseEntity.ok(userService.getAllUsers());
+    }
 
     @PostMapping
     public ResponseEntity<UserDto> create(
@@ -137,6 +146,33 @@ public class UserAdminController {
                         .map(Enum::name)
                         .toArray(String[]::new)
         );
+    }
+
+    @GetMapping("/devices")
+    public ResponseEntity<List<DeviceDto>> getAllDevices() {
+        return ResponseEntity.ok(userService.getAllDevices());
+    }
+
+    @PatchMapping("/devices/{deviceId}/ban")
+    public ResponseEntity<?> banDevice(
+            @PathVariable UUID deviceId,
+            @RequestParam(required = false) String reason
+    ) {
+        userService.banDevice(deviceId, reason);
+        return ResponseEntity.ok(Map.of(
+                "status", "banned",
+                "deviceId", deviceId.toString(),
+                "reason", reason == null ? "banned" : reason
+        ));
+    }
+
+    @PatchMapping("/devices/{deviceId}/unban")
+    public ResponseEntity<?> unbanDevice(@PathVariable UUID deviceId) {
+        userService.unbanDevice(deviceId);
+        return ResponseEntity.ok(Map.of(
+                "status", "unbanned",
+                "deviceId", deviceId.toString()
+        ));
     }
 
     private String getClientIp(HttpServletRequest request) {

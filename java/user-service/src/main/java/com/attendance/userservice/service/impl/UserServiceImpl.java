@@ -1,9 +1,11 @@
 package com.attendance.userservice.service.impl;
 
 import com.attendance.commonlib.dto.UserDto;
+import com.attendance.userservice.dto.DeviceDto;
 import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.User;
 import com.attendance.userservice.model.audit.UserAction;
+import com.attendance.userservice.repository.UserDeviceRepository;
 import com.attendance.userservice.repository.UserRepository;
 import com.attendance.userservice.security.RoleType;
 import com.attendance.userservice.service.IUserService;
@@ -14,7 +16,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -29,6 +33,7 @@ public class UserServiceImpl implements IUserService {
 
     private final JdbcTemplate jdbc;
     private final UserAuditLogService audit;
+    private final UserDeviceRepository userDeviceRepository;
 
     @Override
     public UserDto getMyProfile(String myPublicId) {
@@ -36,6 +41,43 @@ public class UserServiceImpl implements IUserService {
             throw Errors.badRequest("publicId is required");
         }
         return getUserByPublicId(myPublicId);
+    }
+    @Override
+    @Transactional
+    public void changeRoleBySuperAdmin(
+            String targetPublicId,
+            String newRole,
+            String actorPublicId,
+            String sessionId,
+            String ip,
+            String device
+    ) {
+        require(targetPublicId, "publicId is required");
+        require(newRole, "role is required");
+
+        String normalized = normalizeRole(newRole);
+
+        if (RoleType.ROLE_SUPER_ADMIN.name().equals(normalized)) {
+            throw Errors.forbidden("Cannot assign SUPER_ADMIN role", Map.of("role", normalized));
+        }
+
+        User user = userRepository.findByPublicIdAndDeletedAtIsNull(targetPublicId.trim())
+                .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", targetPublicId)));
+
+        user.setRole(normalized);
+        user.setUpdatedBy(actorPublicId);
+
+        userRepository.save(user);
+
+        audit.log(
+                user,
+                com.attendance.userservice.model.audit.UserAction.USER_UPDATED,
+                actorPublicId,
+                sessionId,
+                ip,
+                device,
+                "Role changed to " + normalized + " by SUPER_ADMIN"
+        );
     }
 
     @Override
@@ -94,6 +136,59 @@ public class UserServiceImpl implements IUserService {
         audit.log(user, UserAction.USER_DELETED, myPublicId, sessionId, ip, device, "User deleted own account");
     }
     */
+    }
+
+    @Override
+    public List<UserDto> getAllUsers() {
+        return userRepository.findAllByDeletedAtIsNull()
+                .stream()
+                .map(this::mapToDto)
+                .toList();
+    }
+
+    @Override
+    public List<DeviceDto> getAllDevices() {
+        return userDeviceRepository.findAllByOrderByLastSeenAtDesc()
+                .stream()
+                .map(d -> DeviceDto.builder()
+                        .id(d.getId())
+                        .userPublicId(d.getUser().getPublicId())
+                        .sessionId(d.getSessionId())
+                        .ip(d.getIp())
+                        .userAgent(d.getUserAgent())
+                        .firstSeenAt(d.getFirstSeenAt())
+                        .lastSeenAt(d.getLastSeenAt())
+                        .banned(d.isBanned())
+                        .bannedAt(d.getBannedAt())
+                        .bannedReason(d.getBannedReason())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void banDevice(UUID deviceId, String reason) {
+        var device = userDeviceRepository.findById(deviceId)
+                .orElseThrow(() -> Errors.notFound("Device not found", Map.of("deviceId", deviceId.toString())));
+
+        device.setBanned(true);
+        device.setBannedAt(Instant.now());
+        device.setBannedReason(reason == null ? "banned" : reason);
+
+        userDeviceRepository.save(device);
+    }
+
+    @Override
+    @Transactional
+    public void unbanDevice(UUID deviceId) {
+        var device = userDeviceRepository.findById(deviceId)
+                .orElseThrow(() -> Errors.notFound("Device not found", Map.of("deviceId", deviceId.toString())));
+
+        device.setBanned(false);
+        device.setBannedAt(null);
+        device.setBannedReason(null);
+
+        userDeviceRepository.save(device);
     }
 
     @Override

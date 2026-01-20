@@ -166,7 +166,6 @@ public class DatabaseInitializer {
             safeExec("""
                 DO $$
                 BEGIN
-                    -- 1) если есть content_type и нет format -> переименуем
                     IF EXISTS (
                         SELECT 1 FROM information_schema.columns
                         WHERE table_schema='public'
@@ -183,7 +182,6 @@ public class DatabaseInitializer {
                         ALTER TABLE public.user_faces RENAME COLUMN content_type TO format;
                     END IF;
 
-                    -- 2) если есть и format и content_type -> копируем значения в format, потом удаляем content_type
                     IF EXISTS (
                         SELECT 1 FROM information_schema.columns
                         WHERE table_schema='public'
@@ -322,7 +320,6 @@ public class DatabaseInitializer {
                 END $$;
             """);
 
-            // FK audit user_id
             safeExec("""
                 DO $$
                 BEGIN
@@ -349,6 +346,56 @@ public class DatabaseInitializer {
             safeExec("""
                 CREATE INDEX IF NOT EXISTS ix_user_audit_logs_sid_created_at
                 ON user_audit_logs (sid, created_at DESC)
+            """);
+
+            safeExec("""
+                CREATE TABLE IF NOT EXISTS user_devices (
+                    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                    user_id UUID NOT NULL,
+
+                    session_id VARCHAR(100),
+                    ip VARCHAR(100),
+                    user_agent TEXT,
+
+                    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+                    banned BOOLEAN NOT NULL DEFAULT FALSE,
+                    banned_at TIMESTAMPTZ,
+                    banned_reason TEXT,
+
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+            """);
+
+            safeExec("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_devices_user_id') THEN
+                        ALTER TABLE user_devices
+                        ADD CONSTRAINT fk_user_devices_user_id
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+                    END IF;
+                END $$;
+            """);
+
+            safeExec("CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices(user_id)");
+            safeExec("CREATE INDEX IF NOT EXISTS idx_user_devices_session_id ON user_devices(session_id)");
+            safeExec("CREATE INDEX IF NOT EXISTS idx_user_devices_banned ON user_devices(banned)");
+
+            safeExec("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_trigger WHERE tgname = 'trg_user_devices_set_updated_at'
+                    ) THEN
+                        CREATE TRIGGER trg_user_devices_set_updated_at
+                        BEFORE UPDATE ON user_devices
+                        FOR EACH ROW
+                        EXECUTE FUNCTION set_updated_at();
+                    END IF;
+                END $$;
             """);
         });
     }

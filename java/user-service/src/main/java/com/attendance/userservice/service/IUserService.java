@@ -1,12 +1,17 @@
 package com.attendance.userservice.service;
 
 import com.attendance.commonlib.dto.UserDto;
+import com.attendance.userservice.dto.DeviceDto;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface IUserService {
 
     UserDto createUser(UserDto userDto, String rawPassword);
+    List<DeviceDto> getAllDevices();
+    void banDevice(UUID deviceId, String reason);
+    void unbanDevice(UUID deviceId);
 
 
     UserDto getUserById(UUID id);
@@ -15,7 +20,7 @@ public interface IUserService {
 
     UserDto getUserByPublicId(String publicId);
 
-
+    List<UserDto> getAllUsers();
     String getUserRoleById(UUID id);
 
     String getUserRoleByUsername(String username);
@@ -39,6 +44,14 @@ public interface IUserService {
             String device
     );
 
+    void changeRoleBySuperAdmin(
+            String targetPublicId,
+            String newRole,
+            String actorPublicId,
+            String sessionId,
+            String ip,
+            String device
+    );
 
     UserDto updateUserByPublicId(
             String publicId,
