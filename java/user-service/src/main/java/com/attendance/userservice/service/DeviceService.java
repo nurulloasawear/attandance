@@ -18,45 +18,33 @@ public class DeviceService {
 
     @Transactional(readOnly = true)
     public void checkNotBanned(UUID userId, String deviceKey) {
-        if (userId == null) {
-            throw Errors.badRequest("userId is required");
-        }
+        if (userId == null) throw Errors.badRequest("userId is required");
 
         String key = normalizeDeviceKey(deviceKey);
 
-        var row = jdbc.query(
-                """
-                SELECT banned, banned_reason
-                FROM user_devices
-                WHERE user_id = ?
-                  AND device_key = ?
-                LIMIT 1
-                """,
-                rs -> {
-                    if (!rs.next()) return null;
-                    return Map.of(
-                            "banned", rs.getBoolean("banned"),
-                            "reason", rs.getString("banned_reason")
-                    );
-                },
-                userId, key
-        );
+        jdbc.query("""
+        SELECT banned, banned_reason
+        FROM user_devices
+        WHERE user_id = ?
+          AND device_key = ?
+        LIMIT 1
+    """, rs -> {
+            if (!rs.next()) return null;
 
+            boolean banned = rs.getBoolean("banned");
+            if (!banned) return null;
 
-        if (row == null) return;
+            String reason = rs.getString("banned_reason");
+            if (reason == null) reason = "banned"; // ✅ fix null
 
-        boolean banned = Boolean.TRUE.equals(row.get("banned"));
-        if (!banned) return;
-
-        String reason = (String) row.get("reason");
-        if (reason == null || reason.isBlank()) reason = "banned";
-
-        throw Errors.forbidden("This device is banned", Map.of(
-                "userId", userId.toString(),
-                "deviceKey", key,
-                "reason", reason
-        ));
+            throw Errors.forbidden("This device is banned", Map.of(
+                    "userId", userId.toString(),
+                    "deviceKey", key,
+                    "reason", reason
+            ));
+        }, userId, key);
     }
+
 
 
     @Transactional

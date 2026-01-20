@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -24,8 +26,10 @@ public class AuthSecurityConfig {
         return http
                 .securityMatcher("/api/auth/**")
                 .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults()) // ✅ ВОТ ЭТО НЕ ХВАТАЛО
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/api/auth/**").permitAll() // ✅ preflight
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login",
@@ -40,4 +44,3 @@ public class AuthSecurityConfig {
                 .build();
     }
 }
-
