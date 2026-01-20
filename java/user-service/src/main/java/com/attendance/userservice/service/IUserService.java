@@ -1,6 +1,7 @@
 package com.attendance.userservice.service;
 
 import com.attendance.commonlib.dto.UserDto;
+import com.attendance.userservice.dto.AdminDeviceDto;
 import com.attendance.userservice.dto.DeviceDto;
 
 import java.util.List;
@@ -79,4 +80,6 @@ public interface IUserService {
     void deleteUserByEmail(String email);
 
     void deleteUserByPublicId(String publicId);
+
+    List<AdminDeviceDto> getAllDevicesAdmin();
 }

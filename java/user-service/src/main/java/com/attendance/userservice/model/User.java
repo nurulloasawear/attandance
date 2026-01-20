@@ -17,7 +17,7 @@ import java.util.UUID;
 public class User extends AuditableEntity {
 
     @Id
-    @Column(name = "id")
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column(name = "public_id", nullable = false, unique = true, length = 8)

@@ -1,6 +1,7 @@
 package com.attendance.userservice.service.impl;
 
 import com.attendance.commonlib.dto.UserDto;
+import com.attendance.userservice.dto.AdminDeviceDto;
 import com.attendance.userservice.dto.DeviceDto;
 import com.attendance.userservice.error.Errors;
 import com.attendance.userservice.model.User;
@@ -502,6 +503,43 @@ public class UserServiceImpl implements IUserService {
         return mapToDto(saved);
     }
 
+    @Override
+    public List<AdminDeviceDto> getAllDevicesAdmin() {
+        return jdbc.query("""
+        SELECT d.id,
+               u.public_id,
+               u.username,
+               u.role,
+               d.device_key,
+               d.session_id,
+               d.ip,
+               d.user_agent,
+               d.first_seen_at,
+               d.last_seen_at,
+               d.banned,
+               d.banned_at,
+               d.banned_reason
+        FROM user_devices d
+        JOIN users u ON u.id = d.user_id
+        WHERE u.deleted_at IS NULL
+        ORDER BY d.last_seen_at DESC
+    """, (rs, rowNum) -> AdminDeviceDto.builder()
+                .id(UUID.fromString(rs.getString("id")))
+                .userPublicId(rs.getString("public_id"))
+                .username(rs.getString("username"))
+                .role(rs.getString("role"))
+                .deviceKey(rs.getString("device_key"))
+                .sessionId(rs.getString("session_id"))
+                .ip(rs.getString("ip"))
+                .userAgent(rs.getString("user_agent"))
+                .firstSeenAt(rs.getTimestamp("first_seen_at").toInstant())
+                .lastSeenAt(rs.getTimestamp("last_seen_at").toInstant())
+                .banned(rs.getBoolean("banned"))
+                .bannedAt(rs.getTimestamp("banned_at") != null ? rs.getTimestamp("banned_at").toInstant() : null)
+                .bannedReason(rs.getString("banned_reason"))
+                .build()
+        );
+    }
 
     private void softDeleteById(UUID id) {
         int updated = jdbc.update("""

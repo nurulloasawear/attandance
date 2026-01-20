@@ -384,6 +384,10 @@ public class DatabaseInitializer {
             safeExec("CREATE INDEX IF NOT EXISTS idx_user_devices_session_id ON user_devices(session_id)");
             safeExec("CREATE INDEX IF NOT EXISTS idx_user_devices_banned ON user_devices(banned)");
 
+            safeExec("ALTER TABLE user_devices ADD COLUMN IF NOT EXISTS device_key VARCHAR(100)");
+
+            safeExec("CREATE INDEX IF NOT EXISTS idx_user_devices_device_key ON user_devices(device_key)");
+
             safeExec("""
                 DO $$
                 BEGIN

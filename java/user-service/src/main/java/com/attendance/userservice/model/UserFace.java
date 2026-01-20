@@ -28,7 +28,6 @@ public class UserFace {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    // ✅ PostgreSQL BYTEA (НЕ @Lob)
     @JdbcTypeCode(SqlTypes.VARBINARY)
     @Column(name = "face_data", nullable = false, columnDefinition = "bytea")
     private byte[] faceData;

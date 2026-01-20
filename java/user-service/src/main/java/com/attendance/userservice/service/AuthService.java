@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,11 +38,15 @@ public class AuthService {
     private final PublicIdGeneratorImpl publicIdGenerator;
     private final UserAuditLogService auditLogService;
 
+
+    private final DeviceService deviceService;
+
     @Value("${security.jwt.refresh-expiration-ms}")
     private long refreshExpMs;
 
+
     @Transactional
-    public AuthTokensResponse register(RegisterRequest req, String device, String ip) {
+    public AuthTokensResponse register(RegisterRequest req, String deviceKey, String ip) {
         if (req == null) throw Errors.badRequest("body is required");
         if (req.username() == null || req.username().isBlank()) throw Errors.badRequest("username is required");
         if (req.email() == null || req.email().isBlank()) throw Errors.badRequest("email is required");
@@ -99,6 +104,7 @@ public class AuthService {
         user.setRole("ROLE_EMPLOYEE");
         user.setActive(true);
 
+
         String refreshRaw = generateRefreshRaw();
         String refreshHash = sha256(refreshRaw);
 
@@ -107,8 +113,16 @@ public class AuthService {
                 user.getUsername(),
                 user.getRole(),
                 refreshHash,
-                device,
+                deviceKey,
                 ip
+        );
+
+        deviceService.touchDevice(
+                user,
+                sid,
+                ip,
+                null,
+                deviceKey
         );
 
         String access = jwtService.generateAccessToken(
@@ -117,7 +131,10 @@ public class AuthService {
                         "uid", publicId,
                         "userId", userId.toString(),
                         "role", user.getRole(),
-                        "publicId", publicId
+                        "publicId", publicId,
+
+
+                        "authorities", List.of(user.getRole())
                 ),
                 sid
         );
@@ -133,7 +150,7 @@ public class AuthService {
                 publicId,
                 sid,
                 ip,
-                device,
+                deviceKey,
                 "Registered"
         );
 
@@ -141,7 +158,7 @@ public class AuthService {
     }
 
     @Transactional
-    public AuthTokensResponse login(LoginRequest req, String device, String ip) {
+    public AuthTokensResponse login(LoginRequest req, String deviceKey, String ip) {
         if (req == null) throw Errors.badRequest("body is required");
         if (req.username() == null || req.username().isBlank()) throw Errors.badRequest("username is required");
         if (req.password() == null || req.password().isBlank()) throw Errors.badRequest("password is required");
@@ -150,6 +167,9 @@ public class AuthService {
                 .orElseThrow(() -> Errors.unauthorized("Invalid credentials"));
 
         if (!user.isActive()) throw Errors.forbidden("User disabled");
+
+        deviceService.checkNotBanned(user.getId(), deviceKey);
+
         if (!passwordEncoder.matches(req.password(), user.getPassword())) {
             throw Errors.unauthorized("Invalid credentials");
         }
@@ -162,8 +182,16 @@ public class AuthService {
                 user.getUsername(),
                 user.getRole(),
                 refreshHash,
-                device,
+                deviceKey,
                 ip
+        );
+
+        deviceService.touchDevice(
+                user,
+                sid,
+                ip,
+                null,
+                deviceKey
         );
 
         String access = jwtService.generateAccessToken(
@@ -172,7 +200,10 @@ public class AuthService {
                         "uid", user.getPublicId(),
                         "userId", user.getId().toString(),
                         "role", user.getRole(),
-                        "publicId", user.getPublicId()
+                        "publicId", user.getPublicId(),
+
+                        // ✅ authority для PreAuthorize
+                        "authorities", List.of(user.getRole())
                 ),
                 sid
         );
@@ -188,7 +219,7 @@ public class AuthService {
                 user.getPublicId(),
                 sid,
                 ip,
-                device,
+                deviceKey,
                 "Login (new session created)"
         );
 
@@ -284,7 +315,10 @@ public class AuthService {
                         "uid", dbUser.getPublicId(),
                         "userId", dbUser.getId().toString(),
                         "role", dbUser.getRole(),
-                        "publicId", dbUser.getPublicId()
+                        "publicId", dbUser.getPublicId(),
+
+
+                        "authorities", List.of(dbUser.getRole())
                 ),
                 sid
         );
