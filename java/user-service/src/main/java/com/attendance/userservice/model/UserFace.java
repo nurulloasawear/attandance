@@ -2,6 +2,8 @@ package com.attendance.userservice.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -26,12 +28,11 @@ public class UserFace {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Lob
-    @Basic(fetch = FetchType.LAZY)
-    @Column(name = "face_data", nullable = false)
+    // ✅ PostgreSQL BYTEA (НЕ @Lob)
+    @JdbcTypeCode(SqlTypes.VARBINARY)
+    @Column(name = "face_data", nullable = false, columnDefinition = "bytea")
     private byte[] faceData;
 
-    // ✅ Format only: FACE_TEMPLATE_V1
     @Column(name = "format", nullable = false, length = 50)
     private String format;
 

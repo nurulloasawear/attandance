@@ -17,6 +17,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class UserFaceController {
 
+    private static final String PUBLIC_ID_REGEX = "\\d{8}";
+
     private final UserFaceService userFaceService;
 
     @PostMapping(
@@ -28,9 +30,7 @@ public class UserFaceController {
             @PathVariable String publicId,
             @RequestBody FaceTemplateRequest request
     ) {
-        if (publicId == null || publicId.isBlank()) {
-            throw Errors.badRequest("publicId is required");
-        }
+        validatePublicId(publicId);
 
         String format = normalizeFormat(request.getFormat());
         byte[] data = decodeBase64(request.getDataBase64());
@@ -45,7 +45,6 @@ public class UserFaceController {
         ));
     }
 
-
     @PutMapping(
             value = "/{publicId}",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -55,9 +54,7 @@ public class UserFaceController {
             @PathVariable String publicId,
             @RequestBody FaceTemplateRequest request
     ) {
-        if (publicId == null || publicId.isBlank()) {
-            throw Errors.badRequest("publicId is required");
-        }
+        validatePublicId(publicId);
 
         String format = normalizeFormat(request.getFormat());
         byte[] data = decodeBase64(request.getDataBase64());
@@ -72,15 +69,12 @@ public class UserFaceController {
         ));
     }
 
-
     @GetMapping(
             value = "/{publicId}",
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<Map<String, Object>> get(@PathVariable String publicId) {
-        if (publicId == null || publicId.isBlank()) {
-            throw Errors.badRequest("publicId is required");
-        }
+        validatePublicId(publicId);
 
         UserFace face = userFaceService.get(publicId);
 
@@ -92,15 +86,12 @@ public class UserFaceController {
         ));
     }
 
-
     @GetMapping(
             value = "/{publicId}/meta",
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<Map<String, Object>> getMeta(@PathVariable String publicId) {
-        if (publicId == null || publicId.isBlank()) {
-            throw Errors.badRequest("publicId is required");
-        }
+        validatePublicId(publicId);
 
         UserFace face = userFaceService.get(publicId);
 
@@ -113,29 +104,19 @@ public class UserFaceController {
         ));
     }
 
-
     @GetMapping(
             value = "/{publicId}/exists",
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<Map<String, Object>> exists(@PathVariable String publicId) {
-        if (publicId == null || publicId.isBlank()) {
-            throw Errors.badRequest("publicId is required");
-        }
+        validatePublicId(publicId);
 
-        try {
-            userFaceService.get(publicId);
-            return ResponseEntity.ok(Map.of(
-                    "publicId", publicId,
-                    "exists", true
-            ));
-        } catch (RuntimeException e) {
-            // если notFound -> значит нет face
-            return ResponseEntity.ok(Map.of(
-                    "publicId", publicId,
-                    "exists", false
-            ));
-        }
+        boolean exists = userFaceService.exists(publicId);
+
+        return ResponseEntity.ok(Map.of(
+                "publicId", publicId,
+                "exists", exists
+        ));
     }
 
     @DeleteMapping(
@@ -143,9 +124,7 @@ public class UserFaceController {
             produces = MediaType.APPLICATION_JSON_VALUE
     )
     public ResponseEntity<Map<String, Object>> delete(@PathVariable String publicId) {
-        if (publicId == null || publicId.isBlank()) {
-            throw Errors.badRequest("publicId is required");
-        }
+        validatePublicId(publicId);
 
         userFaceService.delete(publicId);
 
@@ -155,13 +134,12 @@ public class UserFaceController {
         ));
     }
 
-
     private byte[] decodeBase64(String dataBase64) {
         if (dataBase64 == null || dataBase64.isBlank()) {
             throw Errors.badRequest("dataBase64 is required");
         }
         try {
-            return Base64.getDecoder().decode(dataBase64);
+            return Base64.getMimeDecoder().decode(dataBase64);
         } catch (IllegalArgumentException e) {
             throw Errors.badRequest("dataBase64 is invalid");
         }
@@ -170,5 +148,14 @@ public class UserFaceController {
     private String normalizeFormat(String format) {
         if (format == null || format.isBlank()) return "FACE_TEMPLATE_V1";
         return format.trim().toUpperCase();
+    }
+
+    private void validatePublicId(String publicId) {
+        if (publicId == null || publicId.isBlank()) {
+            throw Errors.badRequest("publicId is required");
+        }
+        if (!publicId.matches(PUBLIC_ID_REGEX)) {
+            throw Errors.validation("publicId must be exactly 8 digits", Map.of("publicId", publicId));
+        }
     }
 }
