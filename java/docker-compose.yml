@@ -50,6 +50,32 @@ services:
     ports:
       - "8080:8080"
 
+  attendance-service:
+    build: ./attendance-service
+    container_name: attendance-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/attendance_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres123
+
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+
+      # ✅ тот же секрет, чтобы access token валидировался и здесь
+      SECURITY_JWT_SECRET: +i38C96CqmxwIheqUXRKPHpO/07bWCgLE2SnYJgOQl4=
+
+      # ✅ URL user-service если attendance-service будет вызывать user-service (проверка publicId)
+      USER_SERVICE_URL: http://user-service:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    ports:
+      - "8081:8081"
+
 volumes:
   pgdata:
   redisdata:
