@@ -8,7 +8,6 @@ public final class Errors {
 
     private Errors() {}
 
-    // ========== 400 ==========
     public static ApiException badRequest(String message) {
         return new ApiException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", message, Map.of());
     }

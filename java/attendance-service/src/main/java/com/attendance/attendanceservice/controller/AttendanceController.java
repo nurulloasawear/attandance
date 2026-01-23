@@ -21,7 +21,7 @@ public class AttendanceController {
             @Valid @RequestBody CheckInRequest req,
             Authentication auth
     ) {
-        String actorPublicId = (String) auth.getDetails(); // мы туда положим publicId
+        String actorPublicId = (String) auth.getDetails();
         String role = auth.getAuthorities().iterator().next().getAuthority();
         return attendanceService.checkIn(req, actorPublicId, role);
     }
