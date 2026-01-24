@@ -6,7 +6,6 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="gateway-service" />
         <module name="common-lib" />
       </profile>
       <profile name="Annotation profile for attendance-service" enabled="true">
@@ -29,6 +28,15 @@
         </processorPath>
         <module name="user-service" />
       </profile>
+      <profile name="Annotation profile for gateway-service" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" />
+        </processorPath>
+        <module name="gateway-service" />
+      </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
@@ -36,6 +44,7 @@
       <module name="attendance-root" options="-parameters" />
       <module name="attendance-service" options="-parameters" />
       <module name="common-lib" options="-parameters -parameters" />
+      <module name="gateway-service" options="-parameters" />
       <module name="java" options="-parameters" />
       <module name="user-service" options="-parameters -parameters" />
     </option>
