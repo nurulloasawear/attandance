@@ -47,8 +47,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
 
   attendance-service:
     build: ./attendance-service
@@ -71,8 +71,22 @@ services:
         condition: service_healthy
       user-service:
         condition: service_started
+    expose:
+      - "8081"
+
+  gateway-service:
+    build: ./gateway-service
+    container_name: gateway-service
+    environment:
+      USER_SERVICE_BASE_URL: http://user-service:8080
+      ATTENDANCE_SERVICE_BASE_URL: http://attendance-service:8081
+    depends_on:
+      user-service:
+        condition: service_started
+      attendance-service:
+        condition: service_started
     ports:
-      - "8081:8081"
+      - "8080:8080"
 
 volumes:
   pgdata:
