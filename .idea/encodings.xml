@@ -3,6 +3,8 @@
   <component name="Encoding">
     <file url="file://$PROJECT_DIR$/java/attendance-service/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/java/common-lib/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java/gateway/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/java/gateway/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/java/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/java/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/java/user-service/src/main/java" charset="UTF-8" />
