@@ -15,6 +15,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
@@ -29,6 +30,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
 
   user-service:
     build:
@@ -37,21 +39,27 @@ services:
     container_name: user-service
     environment:
       SERVER_PORT: 8080
+      SPRING_PROFILES_ACTIVE: dev
+
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/attendance_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres123
+
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
+
       SECURITY_JWT_SECRET: +i38C96CqmxwIheqUXRKPHpO/07bWCgLE2SnYJgOQl4=
+
+      # чтобы таблицы создавались (иначе будет "relation users does not exist")
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    expose:
-      - "8080"
     ports:
       - "8082:8080"
+    restart: unless-stopped
 
   attendance-service:
     build:
@@ -60,13 +68,19 @@ services:
     container_name: attendance-service
     environment:
       SERVER_PORT: 8081
+      SPRING_PROFILES_ACTIVE: dev
+
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/attendance_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres123
+
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
+
       SECURITY_JWT_SECRET: +i38C96CqmxwIheqUXRKPHpO/07bWCgLE2SnYJgOQl4=
-      USER_SERVICE_URL: http://user-service:8080
+
+      # ✅ ВАЖНО: переменная должна совпадать с твоим application.properties
+      USER_SERVICE_BASE_URL: http://user-service:8080
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,10 +88,9 @@ services:
         condition: service_healthy
       user-service:
         condition: service_started
-    expose:
-      - "8081"
     ports:
       - "8083:8081"
+    restart: unless-stopped
 
   gateway:
     build:
@@ -95,6 +108,7 @@ services:
         condition: service_started
     ports:
       - "8080:8080"
+    restart: unless-stopped
 
 volumes:
   pgdata:

@@ -8,13 +8,11 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
-@EnableWebSecurity
 @RequiredArgsConstructor
 public class AuthSecurityConfig {
 
@@ -24,22 +22,27 @@ public class AuthSecurityConfig {
     @Order(1)
     public SecurityFilterChain authChain(HttpSecurity http) throws Exception {
         return http
-                .securityMatcher("/api/auth/**")
+                .securityMatcher("/api/auth/**", "/user/api/auth/**")
+
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults()) // ✅ ВОТ ЭТО НЕ ХВАТАЛО
+                .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/api/auth/**").permitAll() // ✅ preflight
-                        .requestMatchers(
-                                "/api/auth/register",
-                                "/api/auth/login",
-                                "/api/auth/refresh"
-                        ).permitAll()
-                        .requestMatchers("/api/auth/logout").authenticated()
-                        .anyRequest().denyAll()
-                )
+
                 .httpBasic(b -> b.disable())
                 .formLogin(f -> f.disable())
+
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        .requestMatchers(
+                                "/api/auth/register", "/api/auth/login", "/api/auth/refresh",
+                                "/user/api/auth/register", "/user/api/auth/login", "/user/api/auth/refresh"
+                        ).permitAll()
+
+                        .requestMatchers("/api/auth/logout", "/user/api/auth/logout").authenticated()
+
+                        .anyRequest().denyAll()
+                )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
