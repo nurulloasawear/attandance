@@ -28,7 +28,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (HttpMethod.OPTIONS.matches(req.getMethod())) return true;
 
-        // swagger + openapi + actuator + error
         return path.startsWith("/swagger-ui")
                 || path.equals("/swagger-ui.html")
                 || path.startsWith("/v3/api-docs")

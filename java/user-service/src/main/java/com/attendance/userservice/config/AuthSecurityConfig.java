@@ -8,11 +8,13 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
+@EnableWebSecurity
 @RequiredArgsConstructor
 public class AuthSecurityConfig {
 
@@ -22,27 +24,22 @@ public class AuthSecurityConfig {
     @Order(1)
     public SecurityFilterChain authChain(HttpSecurity http) throws Exception {
         return http
-                .securityMatcher("/api/auth/**", "/user/api/auth/**")
-
+                .securityMatcher("/api/auth/**")
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
+                .cors(Customizer.withDefaults()) // ✅ ВОТ ЭТО НЕ ХВАТАЛО
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                .httpBasic(b -> b.disable())
-                .formLogin(f -> f.disable())
-
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
+                        .requestMatchers(HttpMethod.OPTIONS, "/api/auth/**").permitAll() // ✅ preflight
                         .requestMatchers(
-                                "/api/auth/register", "/api/auth/login", "/api/auth/refresh",
-                                "/user/api/auth/register", "/user/api/auth/login", "/user/api/auth/refresh"
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/refresh"
                         ).permitAll()
-
-                        .requestMatchers("/api/auth/logout", "/user/api/auth/logout").authenticated()
-
+                        .requestMatchers("/api/auth/logout").authenticated()
                         .anyRequest().denyAll()
                 )
+                .httpBasic(b -> b.disable())
+                .formLogin(f -> f.disable())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }

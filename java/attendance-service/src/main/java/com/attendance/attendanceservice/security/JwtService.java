@@ -27,13 +27,10 @@ public class JwtService {
 
         String s = secret.trim();
 
-        // ✅ поддержка: секрет может быть base64 или обычной строкой
         byte[] bytes;
         try {
-            // если похоже на base64 (и декодится) — берём base64
             bytes = Decoders.BASE64.decode(s);
         } catch (Exception ignore) {
-            // иначе — обычная строка
             bytes = s.getBytes(StandardCharsets.UTF_8);
         }
 
@@ -90,7 +87,6 @@ public class JwtService {
             return out.isEmpty() ? null : out;
         }
 
-        // roles: "ADMIN,USER" или "ADMIN"
         String s = String.valueOf(v).trim();
         if (s.isEmpty()) return null;
 

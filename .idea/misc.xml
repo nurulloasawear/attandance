@@ -14,6 +14,7 @@
     <option name="ignoredFiles">
       <set>
         <option value="$PROJECT_DIR$/java/gateway-service/pom.xml" />
+        <option value="$PROJECT_DIR$/java/gateway/pom.xml" />
       </set>
     </option>
   </component>

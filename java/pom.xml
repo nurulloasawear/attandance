@@ -61,7 +61,6 @@
 
     <modules>
         <module>common-lib</module>
-        <module>gateway</module>
         <module>user-service</module>
         <module>attendance-service</module>
     </modules>
