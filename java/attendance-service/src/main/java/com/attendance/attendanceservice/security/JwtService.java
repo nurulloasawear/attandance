@@ -2,6 +2,7 @@ package com.attendance.attendanceservice.security;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -9,7 +10,10 @@ import org.springframework.stereotype.Service;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.function.Function;
 
 @Service
 public class JwtService {
@@ -21,8 +25,17 @@ public class JwtService {
             throw new IllegalStateException("security.jwt.secret is required");
         }
 
+        String s = secret.trim();
 
-        byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
+        // ✅ поддержка: секрет может быть base64 или обычной строкой
+        byte[] bytes;
+        try {
+            // если похоже на base64 (и декодится) — берём base64
+            bytes = Decoders.BASE64.decode(s);
+        } catch (Exception ignore) {
+            // иначе — обычная строка
+            bytes = s.getBytes(StandardCharsets.UTF_8);
+        }
 
         if (bytes.length < 32) {
             throw new IllegalStateException(
@@ -32,7 +45,6 @@ public class JwtService {
 
         this.key = Keys.hmacShaKeyFor(bytes);
     }
-
 
     public boolean isValid(String token) {
         try {
@@ -45,17 +57,60 @@ public class JwtService {
         }
     }
 
-
     public String extractSubject(String token) {
-        return parseClaims(token).getSubject();
+        return extractClaim(token, Claims::getSubject);
     }
-
 
     public String extractClaimString(String token, String name) {
         Object v = parseClaims(token).get(name);
-        return (v == null) ? null : String.valueOf(v);
+        if (v == null) return null;
+
+        String s = String.valueOf(v).trim();
+        return s.isEmpty() ? null : s;
     }
 
+    /**
+     * roles может быть:
+     * 1) ["ADMIN","USER"]
+     * 2) "ADMIN,USER"
+     * 3) "ADMIN"
+     */
+    public List<String> extractClaimStringList(String token, String name) {
+        Object v = parseClaims(token).get(name);
+        if (v == null) return null;
+
+        // roles: ["ADMIN","USER"]
+        if (v instanceof List<?> list) {
+            List<String> out = new ArrayList<>();
+            for (Object o : list) {
+                if (o == null) continue;
+                String s = String.valueOf(o).trim();
+                if (!s.isEmpty()) out.add(s);
+            }
+            return out.isEmpty() ? null : out;
+        }
+
+        // roles: "ADMIN,USER" или "ADMIN"
+        String s = String.valueOf(v).trim();
+        if (s.isEmpty()) return null;
+
+        String[] parts = s.split(",");
+        List<String> out = new ArrayList<>();
+        for (String p : parts) {
+            String x = p.trim();
+            if (!x.isEmpty()) out.add(x);
+        }
+        return out.isEmpty() ? null : out;
+    }
+
+    public Claims extractAllClaims(String token) {
+        return parseClaims(token);
+    }
+
+    public <T> T extractClaim(String token, Function<Claims, T> extractor) {
+        Claims claims = parseClaims(token);
+        return extractor.apply(claims);
+    }
 
     private Claims parseClaims(String token) {
         return Jwts.parser()

@@ -31,16 +31,17 @@ services:
       retries: 10
 
   user-service:
-    build: ./user-service
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
     container_name: user-service
     environment:
+      SERVER_PORT: 8080
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/attendance_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres123
-
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
-
       SECURITY_JWT_SECRET: +i38C96CqmxwIheqUXRKPHpO/07bWCgLE2SnYJgOQl4=
     depends_on:
       postgres:
@@ -49,20 +50,22 @@ services:
         condition: service_healthy
     expose:
       - "8080"
+    ports:
+      - "8082:8080"
 
   attendance-service:
-    build: ./attendance-service
+    build:
+      context: .
+      dockerfile: attendance-service/Dockerfile
     container_name: attendance-service
     environment:
+      SERVER_PORT: 8081
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/attendance_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres123
-
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
-
       SECURITY_JWT_SECRET: +i38C96CqmxwIheqUXRKPHpO/07bWCgLE2SnYJgOQl4=
-
       USER_SERVICE_URL: http://user-service:8080
     depends_on:
       postgres:
@@ -73,11 +76,16 @@ services:
         condition: service_started
     expose:
       - "8081"
+    ports:
+      - "8083:8081"
 
-  gateway-service:
-    build: ./gateway-service
-    container_name: gateway-service
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: gateway
     environment:
+      SERVER_PORT: 8080
       USER_SERVICE_BASE_URL: http://user-service:8080
       ATTENDANCE_SERVICE_BASE_URL: http://attendance-service:8081
     depends_on:

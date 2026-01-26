@@ -4,6 +4,7 @@ import com.attendance.userservice.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -29,29 +30,23 @@ public class UserSecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
 
     @Bean
+    @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
+        return http
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults()) // ✅ теперь реально работает из-за CorsConfigurationSource ниже
+                .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(b -> b.disable())
                 .formLogin(f -> f.disable())
                 .logout(l -> l.disable())
-
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // ✅ Админ API
                         .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN")
-
-                        .requestMatchers("/error").permitAll()
-
                         .anyRequest().authenticated()
                 )
-
                 .exceptionHandling(eh -> eh
                         .authenticationEntryPoint((req, res, ex) -> {
                             res.setStatus(401);
@@ -64,31 +59,22 @@ public class UserSecurityConfig {
                             res.getWriter().write("{\"error\":\"Forbidden\"}");
                         })
                 )
-
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-
-        return http.build();
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .build();
     }
 
-    // ✅ ВОТ ЭТО ГЛАВНОЕ: CORS настройка
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
                 "http://172.18.0.1:3000",
                 "http://192.168.2.104:3000"
         ));
-
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-
-        // если хочешь чтобы фронт читал Authorization header
         config.setExposedHeaders(List.of("Authorization"));
-
-        // ✅ можно отправлять cookies/authorization
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

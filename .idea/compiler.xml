@@ -25,6 +25,7 @@
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
         </processorPath>
         <module name="attendance-service" />
       </profile>
@@ -35,8 +36,8 @@
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
-      <module name="attendance-root" options="-parameters" />
-      <module name="attendance-service" options="-parameters" />
+      <module name="attendance-root" options="-parameters -parameters" />
+      <module name="attendance-service" options="-parameters -parameters" />
       <module name="common-lib" options="-parameters -parameters" />
       <module name="gateway" options="-parameters -parameters" />
       <module name="gateway-service" options="-parameters" />

@@ -8,14 +8,14 @@ COPY user-service/pom.xml user-service/pom.xml
 COPY gateway/pom.xml gateway/pom.xml
 COPY attendance-service/pom.xml attendance-service/pom.xml
 
-RUN mvn -B -q -DskipTests -pl attendance-service -am dependency:go-offline
+RUN mvn -B -q -DskipTests -pl gateway -am dependency:go-offline
 
-COPY attendance-service/src attendance-service/src
+COPY gateway/src gateway/src
 
-RUN mvn -B -DskipTests -pl attendance-service -am clean package
+RUN mvn -B -DskipTests -pl gateway -am clean package
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-COPY --from=build /workspace/attendance-service/target/*.jar app.jar
-EXPOSE 8081
+COPY --from=build /workspace/gateway/target/*.jar app.jar
+EXPOSE 8080
 ENTRYPOINT ["java","-jar","app.jar"]

@@ -16,11 +16,9 @@
     <properties>
         <java.version>17</java.version>
 
-        <!-- Boot 4.x -->
         <spring-boot.version>4.0.1</spring-boot.version>
-
-        <!-- ВАЖНО: Для Boot 4.0.x нужен Spring Cloud 2025.1.x (а 2025.0.x = под Boot 3.5.x) -->
         <spring-cloud.version>2025.1.0</spring-cloud.version>
+        <springdoc.version>3.0.1</springdoc.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.parameters>true</maven.compiler.parameters>
@@ -44,19 +42,28 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-bom</artifactId>
+                <version>${springdoc.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.attendance</groupId>
+                <artifactId>common-lib</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
-    <!-- Список модулей (папки в корне проекта) -->
     <modules>
         <module>common-lib</module>
         <module>gateway</module>
         <module>user-service</module>
         <module>attendance-service</module>
-        <!--        <module>auth-service</module>-->
-        <!--        <module>attendance-service</module>-->
-        <!--        <module>notification-service</module>-->
-        <!-- добавляй свои -->
     </modules>
 
     <dependencies>
@@ -73,16 +80,17 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.13.0</version>
                     <configuration>
                         <release>${java.version}</release>
                         <parameters>${maven.compiler.parameters}</parameters>
                     </configuration>
                 </plugin>
 
-                <!-- Тесты -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.2</version>
                     <configuration>
                         <useModulePath>${surefire.useModulePath}</useModulePath>
                     </configuration>
@@ -91,6 +99,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>3.5.2</version>
                 </plugin>
 
                 <plugin>
@@ -100,6 +109,21 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
+        </plugins>
     </build>
 
 </project>
