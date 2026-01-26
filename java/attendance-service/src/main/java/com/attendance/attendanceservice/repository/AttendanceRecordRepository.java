@@ -11,7 +11,7 @@ import java.util.UUID;
 public interface AttendanceRecordRepository extends JpaRepository<AttendanceRecord, UUID> {
 
     Optional<AttendanceRecord> findByUserIdAndWorkDate(UUID userId, LocalDate workDate);
-
+    List<AttendanceRecord> findAllByUserIdAndWorkDateBetweenOrderByWorkDateDesc(UUID userId, LocalDate from, LocalDate to);
     List<AttendanceRecord> findAllByUserPublicIdAndWorkDateBetween(
             String userPublicId,
             LocalDate from,

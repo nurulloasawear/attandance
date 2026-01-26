@@ -76,7 +76,6 @@ public class JwtService {
         Object v = parseClaims(token).get(name);
         if (v == null) return null;
 
-        // roles: ["ADMIN","USER"]
         if (v instanceof List<?> list) {
             List<String> out = new ArrayList<>();
             for (Object o : list) {

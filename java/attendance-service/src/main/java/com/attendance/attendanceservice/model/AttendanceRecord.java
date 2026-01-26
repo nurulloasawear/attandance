@@ -10,7 +10,10 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
-@Table(name = "attendance_records")
+@Table(
+        name = "attendance_records",
+        uniqueConstraints = @UniqueConstraint(name = "uk_attendance_user_date", columnNames = {"user_id", "work_date"})
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -27,7 +30,7 @@ public class AttendanceRecord {
     @Column(name = "user_id", nullable = false, columnDefinition = "uuid")
     private UUID userId;
 
-    @Column(name = "user_public_id", nullable = false, length = 8)
+    @Column(name = "user_public_id", nullable = false, length = 64)
     private String userPublicId;
 
     @Column(name = "work_date", nullable = false)
