@@ -20,7 +20,7 @@ public final class Errors {
         return new ApiException(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", message, details);
     }
 
-    // ========== 401 ==========
+    // ========== 401 =========
     public static ApiException unauthorized(String message) {
         return new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", message, Map.of());
     }

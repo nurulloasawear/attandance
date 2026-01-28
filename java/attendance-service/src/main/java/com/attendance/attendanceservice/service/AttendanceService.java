@@ -30,19 +30,21 @@ public class AttendanceService {
     private static final String EVENT_CHECK_IN = "CHECK_IN";
     private static final String EVENT_CHECK_OUT = "CHECK_OUT";
 
+    private static final int DEFAULT_HISTORY_DAYS = 30;
+
     private final AttendanceRecordRepository repo;
     private final UserClient userClient;
     private final AttendanceEventPublisher eventPublisher;
 
     @Transactional
     public AttendanceRecordDto checkIn(CheckInRequest req, String actorPublicId, String actorRole) {
-        validateRequest(req.userPublicId());
-        enforceSelfOrAdmin(req.userPublicId(), actorPublicId, actorRole);
+        String targetPublicId = requirePublicId(req.userPublicId());
+        enforceSelfOrAdmin(targetPublicId, actorPublicId, actorRole);
 
-        UserInfoDto user = loadActiveUser(req.userPublicId());
+        UserInfoDto user = loadActiveUser(targetPublicId);
 
         Instant now = resolveNow(req.time());
-        LocalDate workDate = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        LocalDate workDate = toUtcDate(now);
 
         AttendanceRecord record = repo.findByUserIdAndWorkDate(user.id(), workDate)
                 .orElseGet(() -> AttendanceRecord.builder()
@@ -63,7 +65,7 @@ public class AttendanceService {
 
         AttendanceRecord saved = repo.save(record);
 
-        eventPublisher.publish(new AttendanceEvent(
+        eventPublisher.publishAfterCommit(new AttendanceEvent(
                 UUID.randomUUID().toString(),
                 EVENT_CHECK_IN,
                 saved.getId(),
@@ -78,13 +80,13 @@ public class AttendanceService {
 
     @Transactional
     public AttendanceRecordDto checkOut(CheckOutRequest req, String actorPublicId, String actorRole) {
-        validateRequest(req.userPublicId());
-        enforceSelfOrAdmin(req.userPublicId(), actorPublicId, actorRole);
+        String targetPublicId = requirePublicId(req.userPublicId());
+        enforceSelfOrAdmin(targetPublicId, actorPublicId, actorRole);
 
-        UserInfoDto user = loadActiveUser(req.userPublicId());
+        UserInfoDto user = loadActiveUser(targetPublicId);
 
         Instant now = resolveNow(req.time());
-        LocalDate workDate = LocalDate.ofInstant(now, ZoneOffset.UTC);
+        LocalDate workDate = toUtcDate(now);
 
         AttendanceRecord record = repo.findByUserIdAndWorkDate(user.id(), workDate)
                 .orElseThrow(() -> Errors.notFound("No record for today"));
@@ -92,7 +94,6 @@ public class AttendanceService {
         if (record.getCheckIn() == null) {
             throw Errors.conflict("Not checked in yet");
         }
-
         if (record.getCheckOut() != null) {
             throw Errors.conflict("Already checked out");
         }
@@ -102,7 +103,7 @@ public class AttendanceService {
 
         AttendanceRecord saved = repo.save(record);
 
-        eventPublisher.publish(new AttendanceEvent(
+        eventPublisher.publishAfterCommit(new AttendanceEvent(
                 UUID.randomUUID().toString(),
                 EVENT_CHECK_OUT,
                 saved.getId(),
@@ -117,28 +118,35 @@ public class AttendanceService {
 
     @Transactional(readOnly = true)
     public AttendanceRecordDto today(String targetUserPublicId, String actorPublicId, String actorRole) {
-        validateRequest(targetUserPublicId);
-        enforceSelfOrAdmin(targetUserPublicId, actorPublicId, actorRole);
+        String targetPublicId = requirePublicId(targetUserPublicId);
+        enforceSelfOrAdmin(targetPublicId, actorPublicId, actorRole);
 
-        UserInfoDto user = loadActiveUser(targetUserPublicId);
+        UserInfoDto user = loadActiveUser(targetPublicId);
 
-        LocalDate workDate = LocalDate.now(ZoneOffset.UTC);
+        LocalDate todayUtc = LocalDate.now(ZoneOffset.UTC);
 
-        AttendanceRecord record = repo.findByUserIdAndWorkDate(user.id(), workDate)
+        AttendanceRecord record = repo.findByUserIdAndWorkDate(user.id(), todayUtc)
                 .orElseThrow(() -> Errors.notFound("No record for today"));
 
         return map(record);
     }
 
     @Transactional(readOnly = true)
-    public List<AttendanceRecordDto> history(String targetUserPublicId, LocalDate from, LocalDate to, String actorPublicId, String actorRole) {
-        validateRequest(targetUserPublicId);
-        enforceSelfOrAdmin(targetUserPublicId, actorPublicId, actorRole);
+    public List<AttendanceRecordDto> history(
+            String targetUserPublicId,
+            LocalDate from,
+            LocalDate to,
+            String actorPublicId,
+            String actorRole
+    ) {
+        String targetPublicId = requirePublicId(targetUserPublicId);
+        enforceSelfOrAdmin(targetPublicId, actorPublicId, actorRole);
 
-        UserInfoDto user = loadActiveUser(targetUserPublicId);
+        UserInfoDto user = loadActiveUser(targetPublicId);
 
-        LocalDate safeFrom = from != null ? from : LocalDate.now(ZoneOffset.UTC).minusDays(30);
-        LocalDate safeTo = to != null ? to : LocalDate.now(ZoneOffset.UTC);
+        LocalDate todayUtc = LocalDate.now(ZoneOffset.UTC);
+        LocalDate safeTo = (to != null) ? to : todayUtc;
+        LocalDate safeFrom = (from != null) ? from : safeTo.minusDays(DEFAULT_HISTORY_DAYS);
 
         if (safeFrom.isAfter(safeTo)) {
             throw Errors.badRequest("from must be <= to");
@@ -150,10 +158,11 @@ public class AttendanceService {
                 .toList();
     }
 
-    private void validateRequest(String userPublicId) {
+    private String requirePublicId(String userPublicId) {
         if (userPublicId == null || userPublicId.isBlank()) {
             throw Errors.badRequest("userPublicId is required");
         }
+        return userPublicId.trim();
     }
 
     private UserInfoDto loadActiveUser(String publicId) {
@@ -169,6 +178,10 @@ public class AttendanceService {
 
     private Instant resolveNow(Instant requestTime) {
         return requestTime != null ? requestTime : Instant.now();
+    }
+
+    private LocalDate toUtcDate(Instant instant) {
+        return LocalDate.ofInstant(instant, ZoneOffset.UTC);
     }
 
     private void enforceSelfOrAdmin(String targetPublicId, String actorPublicId, String actorRole) {

@@ -1,11 +1,15 @@
 package com.attendance.userservice.kafka.dto;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.UUID;
 
 public record AttendanceEvent(
         String eventId,
         String type,
-        String recordId,
+        UUID recordId,
+        UUID userId,
         String userPublicId,
-        Instant time
+        LocalDate workDate,
+        Instant occurredAt
 ) {}

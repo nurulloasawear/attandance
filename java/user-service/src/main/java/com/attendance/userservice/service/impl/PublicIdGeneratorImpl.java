@@ -23,7 +23,6 @@ public class PublicIdGeneratorImpl {
 
             int[] digits = {0,1,2,3,4,5,6,7,8,9};
 
-            // shuffle
             for (int i = digits.length - 1; i > 0; i--) {
                 int j = random.nextInt(i + 1);
                 int tmp = digits[i];
@@ -31,7 +30,6 @@ public class PublicIdGeneratorImpl {
                 digits[j] = tmp;
             }
 
-            // first digit must not be 0
             if (digits[0] == 0) {
                 for (int k = 1; k < 8; k++) {
                     if (digits[k] != 0) {
@@ -57,7 +55,7 @@ public class PublicIdGeneratorImpl {
             """, Integer.class, id);
 
             if (rows.isEmpty()) {
-                return id; // unique
+                return id;
             }
         }
 
