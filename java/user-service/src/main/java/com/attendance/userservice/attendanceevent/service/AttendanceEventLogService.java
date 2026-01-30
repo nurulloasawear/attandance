@@ -1,8 +1,8 @@
 package com.attendance.userservice.attendanceevent.service;
 
+import com.attendance.commonlib.kafka.AttendanceEvent;
 import com.attendance.userservice.attendanceevent.model.AttendanceEventLog;
 import com.attendance.userservice.attendanceevent.repository.AttendanceEventLogRepository;
-import com.attendance.userservice.kafka.dto.AttendanceEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -15,8 +15,10 @@ public class AttendanceEventLogService {
     private final AttendanceEventLogRepository repo;
 
     @Transactional
-    public void saveIfNew(AttendanceEvent event) {
+    public void handle(AttendanceEvent event) {
         if (event == null || event.eventId() == null || event.eventId().isBlank()) return;
+
+        if (repo.existsByEventId(event.eventId())) return;
 
         AttendanceEventLog log = AttendanceEventLog.builder()
                 .eventId(event.eventId())
@@ -26,6 +28,8 @@ public class AttendanceEventLogService {
                 .userPublicId(event.userPublicId())
                 .workDate(event.workDate())
                 .occurredAt(event.occurredAt())
+                .actorPublicId(event.actorPublicId())
+                .actorRole(event.actorRole())
                 .build();
 
         try {

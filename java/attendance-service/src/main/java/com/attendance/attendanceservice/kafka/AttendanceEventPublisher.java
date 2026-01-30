@@ -1,15 +1,14 @@
 package com.attendance.attendanceservice.kafka;
 
+import com.attendance.commonlib.kafka.AttendanceEvent;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-@Slf4j
-@Service
+@Component
 @RequiredArgsConstructor
 public class AttendanceEventPublisher {
 
@@ -21,21 +20,21 @@ public class AttendanceEventPublisher {
     public void publishAfterCommit(AttendanceEvent event) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    publishSafe(event);
-                }
+                @Override public void suspend() {}
+                @Override public void resume() {}
+                @Override public void flush() {}
+                @Override public void beforeCommit(boolean readOnly) {}
+                @Override public void beforeCompletion() {}
+                @Override public void afterCommit() { send(event); }
+                @Override public void afterCompletion(int status) {}
             });
             return;
         }
-        publishSafe(event);
+        send(event);
     }
 
-    private void publishSafe(AttendanceEvent event) {
-        try {
-            kafkaTemplate.send(topic, event.userPublicId(), event);
-        } catch (Exception e) {
-            log.error("Kafka publish failed: {}", e.getMessage(), e);
-        }
+    private void send(AttendanceEvent event) {
+        String key = event.userPublicId() != null ? event.userPublicId() : event.eventId();
+        kafkaTemplate.send(topic, key, event);
     }
 }

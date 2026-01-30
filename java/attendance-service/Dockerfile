@@ -3,12 +3,13 @@ WORKDIR /workspace
 
 COPY pom.xml ./
 COPY common-lib/pom.xml common-lib/pom.xml
-COPY attendance-service/pom.xml attendance-service/pom.xml
 COPY user-service/pom.xml user-service/pom.xml
+COPY attendance-service/pom.xml attendance-service/pom.xml
 
 RUN mvn -B -q -DskipTests -pl attendance-service -am dependency:go-offline
 
 COPY common-lib/src common-lib/src
+COPY user-service/src user-service/src
 COPY attendance-service/src attendance-service/src
 
 RUN mvn -B -DskipTests -pl attendance-service -am clean package
@@ -18,5 +19,5 @@ WORKDIR /app
 
 COPY --from=build /workspace/attendance-service/target/*.jar app.jar
 
-EXPOSE 8081
+EXPOSE 8082
 ENTRYPOINT ["java","-jar","app.jar"]

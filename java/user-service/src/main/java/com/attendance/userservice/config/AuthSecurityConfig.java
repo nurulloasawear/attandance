@@ -26,10 +26,10 @@ public class AuthSecurityConfig {
         return http
                 .securityMatcher("/api/auth/**")
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults()) // ✅ ВОТ ЭТО НЕ ХВАТАЛО
+                .cors(Customizer.withDefaults()) //
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/api/auth/**").permitAll() // ✅ preflight
+                        .requestMatchers(HttpMethod.OPTIONS, "/api/auth/**").permitAll()
                         .requestMatchers(
                                 "/api/auth/register",
                                 "/api/auth/login",

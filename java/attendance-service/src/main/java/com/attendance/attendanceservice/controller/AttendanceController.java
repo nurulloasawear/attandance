@@ -22,22 +22,22 @@ public class AttendanceController {
 
     @PostMapping("/check-in")
     public AttendanceRecordDto checkIn(@Valid @RequestBody CheckInRequest req, Authentication auth) {
-        String actorPublicId = auth.getName();
-        String role = auth.getAuthorities().iterator().next().getAuthority();
+        String actorPublicId = actorPublicId(auth);
+        String role = actorRole(auth);
         return attendanceService.checkIn(req, actorPublicId, role);
     }
 
     @PostMapping("/check-out")
     public AttendanceRecordDto checkOut(@Valid @RequestBody CheckOutRequest req, Authentication auth) {
-        String actorPublicId = auth.getName();
-        String role = auth.getAuthorities().iterator().next().getAuthority();
+        String actorPublicId = actorPublicId(auth);
+        String role = actorRole(auth);
         return attendanceService.checkOut(req, actorPublicId, role);
     }
 
     @GetMapping("/me/today")
     public AttendanceRecordDto myToday(Authentication auth) {
-        String actorPublicId = auth.getName();
-        String role = auth.getAuthorities().iterator().next().getAuthority();
+        String actorPublicId = actorPublicId(auth);
+        String role = actorRole(auth);
         return attendanceService.today(actorPublicId, actorPublicId, role);
     }
 
@@ -47,15 +47,15 @@ public class AttendanceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             Authentication auth
     ) {
-        String actorPublicId = auth.getName();
-        String role = auth.getAuthorities().iterator().next().getAuthority();
+        String actorPublicId = actorPublicId(auth);
+        String role = actorRole(auth);
         return attendanceService.history(actorPublicId, from, to, actorPublicId, role);
     }
 
     @GetMapping("/users/{publicId}/today")
     public AttendanceRecordDto userToday(@PathVariable String publicId, Authentication auth) {
-        String actorPublicId = auth.getName();
-        String role = auth.getAuthorities().iterator().next().getAuthority();
+        String actorPublicId = actorPublicId(auth);
+        String role = actorRole(auth);
         return attendanceService.today(publicId, actorPublicId, role);
     }
 
@@ -66,8 +66,22 @@ public class AttendanceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             Authentication auth
     ) {
-        String actorPublicId = auth.getName();
-        String role = auth.getAuthorities().iterator().next().getAuthority();
+        String actorPublicId = actorPublicId(auth);
+        String role = actorRole(auth);
         return attendanceService.history(publicId, from, to, actorPublicId, role);
+    }
+
+    private String actorPublicId(Authentication auth) {
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()) {
+            throw new IllegalStateException("Missing authentication");
+        }
+        return auth.getName();
+    }
+
+    private String actorRole(Authentication auth) {
+        if (auth == null || auth.getAuthorities() == null || auth.getAuthorities().isEmpty()) {
+            throw new IllegalStateException("Missing role");
+        }
+        return auth.getAuthorities().iterator().next().getAuthority();
     }
 }

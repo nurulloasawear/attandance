@@ -5,10 +5,10 @@ import com.attendance.attendanceservice.dto.CheckInRequest;
 import com.attendance.attendanceservice.dto.CheckOutRequest;
 import com.attendance.attendanceservice.dto.UserInfoDto;
 import com.attendance.attendanceservice.error.Errors;
-import com.attendance.attendanceservice.kafka.AttendanceEvent;
 import com.attendance.attendanceservice.kafka.AttendanceEventPublisher;
 import com.attendance.attendanceservice.model.AttendanceRecord;
 import com.attendance.attendanceservice.repository.AttendanceRecordRepository;
+import com.attendance.commonlib.kafka.AttendanceEvent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,7 +72,9 @@ public class AttendanceService {
                 saved.getUserId(),
                 saved.getUserPublicId(),
                 saved.getWorkDate(),
-                saved.getCheckIn()
+                saved.getCheckIn(),
+                actorPublicId,
+                actorRole
         ));
 
         return map(saved);
@@ -110,7 +112,9 @@ public class AttendanceService {
                 saved.getUserId(),
                 saved.getUserPublicId(),
                 saved.getWorkDate(),
-                saved.getCheckOut()
+                saved.getCheckOut(),
+                actorPublicId,
+                actorRole
         ));
 
         return map(saved);

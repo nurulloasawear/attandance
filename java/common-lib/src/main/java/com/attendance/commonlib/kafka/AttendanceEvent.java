@@ -1,4 +1,4 @@
-package com.attendance.attendanceservice.kafka;
+package com.attendance.commonlib.kafka;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -11,5 +11,7 @@ public record AttendanceEvent(
         UUID userId,
         String userPublicId,
         LocalDate workDate,
-        Instant occurredAt
+        Instant occurredAt,
+        String actorPublicId,
+        String actorRole
 ) {}

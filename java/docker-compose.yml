@@ -36,24 +36,42 @@ services:
     image: apache/kafka:3.7.0
     container_name: attendance-kafka
     hostname: kafka
+    user: "0:0"  # фикс прав на volume (/kafka/data)
     ports:
-      - "9092:9092"
+      - "9092:9092"     # внутри docker сети: kafka:9092
+      - "29092:29092"   # с хоста: localhost:29092
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+
+      # listeners
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+
+      # kraft
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      # storage
       KAFKA_LOG_DIRS: /kafka/data
+
+      # single-broker settings
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
+
+      # важно: образ apache/kafka ждёт CLUSTER_ID
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID:-MkU3OEVBNTcwNTJENDM2Qk}
     volumes:
       - kafkadata:/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "bash -lc 'unset JMX_PORT; /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
     restart: unless-stopped
 
   kafka-ui:
@@ -66,7 +84,7 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
     depends_on:
       kafka:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
   user-service:
@@ -93,7 +111,7 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
     ports:
       - "8081:8081"
     restart: unless-stopped
@@ -122,7 +140,7 @@ services:
       redis:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
       user-service:
         condition: service_started
     ports:
