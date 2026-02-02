@@ -14,11 +14,16 @@ import java.util.UUID;
 public class UserDevice {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", columnDefinition = "uuid", updatable = false, nullable = false)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @Column(name = "device_key", length = 100)
+    private String deviceKey;
 
     @Column(name = "session_id")
     private String sessionId;
@@ -53,11 +58,10 @@ public class UserDevice {
     @PrePersist
     public void prePersist() {
         Instant now = Instant.now();
-        this.createdAt = now;
-        this.updatedAt = now;
-
-        if (this.firstSeenAt == null) this.firstSeenAt = now;
-        if (this.lastSeenAt == null) this.lastSeenAt = now;
+        if (createdAt == null) createdAt = now;
+        if (updatedAt == null) updatedAt = now;
+        if (firstSeenAt == null) firstSeenAt = now;
+        if (lastSeenAt == null) lastSeenAt = now;
     }
 
     @PreUpdate
@@ -65,3 +69,4 @@ public class UserDevice {
         this.updatedAt = Instant.now();
     }
 }
+

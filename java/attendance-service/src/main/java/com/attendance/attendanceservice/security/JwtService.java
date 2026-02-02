@@ -107,7 +107,7 @@ public class JwtService {
         return extractor.apply(claims);
     }
 
-    private Claims parseClaims(String token) {
+    Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)
                 .build()
