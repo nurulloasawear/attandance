@@ -1,8 +1,8 @@
 package com.attendance.attendanceservice.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -25,14 +25,7 @@ public class JwtService {
             throw new IllegalStateException("security.jwt.secret is required");
         }
 
-        String s = secret.trim();
-
-        byte[] bytes;
-        try {
-            bytes = Decoders.BASE64.decode(s);
-        } catch (Exception ignore) {
-            bytes = s.getBytes(StandardCharsets.UTF_8);
-        }
+        byte[] bytes = secret.trim().getBytes(StandardCharsets.UTF_8);
 
         if (bytes.length < 32) {
             throw new IllegalStateException(
@@ -47,15 +40,22 @@ public class JwtService {
         try {
             Claims claims = parseClaims(token);
             Date exp = claims.getExpiration();
-            if (exp == null) return true;
-            return exp.toInstant().isAfter(Instant.now());
-        } catch (Exception e) {
+            return exp == null || exp.toInstant().isAfter(Instant.now());
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
 
+    public Claims extractAllClaims(String token) {
+        return parseClaims(token);
+    }
+
     public String extractSubject(String token) {
         return extractClaim(token, Claims::getSubject);
+    }
+
+    public String extractJti(String token) {
+        return extractClaim(token, Claims::getId);
     }
 
     public String extractClaimString(String token, String name) {
@@ -98,13 +98,8 @@ public class JwtService {
         return out.isEmpty() ? null : out;
     }
 
-    public Claims extractAllClaims(String token) {
-        return parseClaims(token);
-    }
-
     public <T> T extractClaim(String token, Function<Claims, T> extractor) {
-        Claims claims = parseClaims(token);
-        return extractor.apply(claims);
+        return extractor.apply(parseClaims(token));
     }
 
     Claims parseClaims(String token) {

@@ -6,6 +6,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.core.GrantedAuthority;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.time.Instant;
 import java.util.*;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -29,7 +31,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest req) {
         String path = req.getRequestURI();
-
         if (HttpMethod.OPTIONS.matches(req.getMethod())) return true;
 
         return path.startsWith("/swagger-ui")
@@ -40,44 +41,44 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(
-            HttpServletRequest req,
-            HttpServletResponse res,
-            FilterChain chain
-    ) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain chain) throws ServletException, IOException {
 
-        String header = req.getHeader(HttpHeaders.AUTHORIZATION);
+        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if (header == null || !header.startsWith("Bearer ")) {
-            chain.doFilter(req, res);
+            chain.doFilter(request, response);
             return;
         }
 
         String token = header.substring(7).trim();
-
-        if (token.isBlank() || !jwtService.isValid(token)) {
-            res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        if (token.isBlank()) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
         try {
+            if (!jwtService.isValid(token)) {
+                log.warn("JWT invalid (signature/exp). path={}", request.getRequestURI());
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+
             Claims claims = jwtService.parseClaims(token);
             Map<String, Object> claimsMap = new HashMap<>(claims);
 
-            // --- нормализация publicId/pid/uid (как у user-service) ---
             String uid = asString(claimsMap.get("uid"));
             String pid = asString(claimsMap.get("pid"));
             String publicId = asString(claimsMap.get("publicId"));
 
             String resolvedPublicId = firstNotBlank(pid, publicId);
-
             if (resolvedPublicId != null) {
                 claimsMap.put("uid", resolvedPublicId);
                 claimsMap.put("pid", resolvedPublicId);
                 claimsMap.put("publicId", resolvedPublicId);
             } else if (uid != null && uid.length() == 8) {
                 claimsMap.put("pid", uid);
-                claimsMap.put("publicId", uid);
             }
 
             Instant iat = claims.getIssuedAt() != null ? claims.getIssuedAt().toInstant() : Instant.now();
@@ -94,41 +95,39 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     .expiresAt(exp)
                     .build();
 
-            List<GrantedAuthority> authorities = resolveAuthorities(claimsMap);
+            List<GrantedAuthority> authorities = extractAuthorities(claimsMap);
 
-            SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt, authorities));
+            JwtAuthenticationToken auth = new JwtAuthenticationToken(jwt, authorities);
+            auth.setDetails(claimsMap.get("publicId")); // удобно доставать publicId как details
 
-            chain.doFilter(req, res);
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            chain.doFilter(request, response);
 
         } catch (Exception e) {
             SecurityContextHolder.clearContext();
-            res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            log.warn("JWT filter failed: {} path={}", e.getMessage(), request.getRequestURI());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
         }
     }
 
-    private static List<GrantedAuthority> resolveAuthorities(Map<String, Object> claimsMap) {
-        Object rolesObj = claimsMap.get("roles");
-        List<GrantedAuthority> authorities = new ArrayList<>();
+    private static List<GrantedAuthority> extractAuthorities(Map<String, Object> claims) {
+        // поддержка и role, и roles
+        Object rolesObj = claims.get("roles");
+        List<GrantedAuthority> out = new ArrayList<>();
 
         if (rolesObj instanceof Collection<?> col) {
             for (Object r : col) {
                 String role = normalizeRole(asString(r));
-                if (role != null) authorities.add(new SimpleGrantedAuthority(role));
+                if (role != null) out.add(new SimpleGrantedAuthority(role));
             }
-            return authorities;
+            return out;
         }
 
-        String role = normalizeRole(asString(claimsMap.get("role")));
-        if (role != null) authorities.add(new SimpleGrantedAuthority(role));
-        return authorities;
-    }
+        String role = normalizeRole(asString(claims.get("role")));
+        if (role != null) out.add(new SimpleGrantedAuthority(role));
 
-    private static String normalizeRole(String role) {
-        if (role == null) return null;
-        role = role.trim();
-        if (role.isEmpty()) return null;
-        if (!role.startsWith("ROLE_")) role = "ROLE_" + role;
-        return role;
+        return out;
     }
 
     private static String asString(Object v) {
@@ -139,5 +138,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (a != null && !a.isBlank()) return a;
         if (b != null && !b.isBlank()) return b;
         return null;
+    }
+
+    private static String normalizeRole(String role) {
+        if (role == null) return null;
+        role = role.trim();
+        if (role.isEmpty()) return null;
+        if (!role.startsWith("ROLE_")) role = "ROLE_" + role;
+        return role;
     }
 }
