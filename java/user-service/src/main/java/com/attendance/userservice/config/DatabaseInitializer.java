@@ -23,10 +23,8 @@ public class DatabaseInitializer {
         tx.executeWithoutResult(status -> {
             log.info("DB init: start");
 
-            // pgcrypto для gen_random_uuid()
             execCritical("CREATE EXTENSION IF NOT EXISTS pgcrypto");
 
-            // Общая функция для updated_at триггеров
             execCritical("""
                 CREATE OR REPLACE FUNCTION public.set_updated_at()
                 RETURNS TRIGGER AS $$
@@ -37,7 +35,6 @@ public class DatabaseInitializer {
                 $$ LANGUAGE plpgsql;
             """);
 
-            // ---------------- USERS ----------------
             execCritical("""
                 CREATE TABLE IF NOT EXISTS public.users (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -65,8 +62,6 @@ public class DatabaseInitializer {
             execOptional("ALTER TABLE public.users ADD COLUMN IF NOT EXISTS updated_by VARCHAR(8)");
             execOptional("ALTER TABLE public.users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ NULL");
 
-            // Удаляем старые UNIQUE constraints на username/email/public_id,
-            // чтобы использовать частичные unique indexes (где deleted_at IS NULL)
             execOptional("""
                 DO $$
                 DECLARE c RECORD;
@@ -123,7 +118,6 @@ public class DatabaseInitializer {
                 END $$;
             """);
 
-            // ---------------- REFRESH TOKENS ----------------
             execCritical("""
                 CREATE TABLE IF NOT EXISTS public.refresh_tokens (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -152,7 +146,6 @@ public class DatabaseInitializer {
             execOptional("CREATE INDEX IF NOT EXISTS ix_refresh_tokens_expires_at ON public.refresh_tokens (expires_at)");
             execOptional("CREATE INDEX IF NOT EXISTS ix_refresh_tokens_revoked    ON public.refresh_tokens (revoked)");
 
-            // ---------------- USER FACES ----------------
             execCritical("""
                 CREATE TABLE IF NOT EXISTS public.user_faces (
                     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -167,7 +160,6 @@ public class DatabaseInitializer {
                 )
             """);
 
-            // миграция старого content_type -> format (и удаление content_type если остался)
             execOptional("""
                 DO $$
                 BEGIN
@@ -212,7 +204,6 @@ public class DatabaseInitializer {
             execOptional("ALTER TABLE public.user_faces ALTER COLUMN created_at SET DEFAULT NOW()");
             execOptional("ALTER TABLE public.user_faces ALTER COLUMN updated_at SET DEFAULT NOW()");
 
-            // CHECK на format
             execOptional("""
                 DO $$
                 BEGIN
@@ -365,6 +356,8 @@ public class DatabaseInitializer {
                     device_key VARCHAR(255)
                 )
             """);
+
+            execOptional("ALTER TABLE public.user_devices ALTER COLUMN id SET DEFAULT gen_random_uuid()");
 
             execOptional("ALTER TABLE public.user_devices ADD COLUMN IF NOT EXISTS device_key VARCHAR(255)");
             execOptional("ALTER TABLE public.user_devices ALTER COLUMN device_key TYPE VARCHAR(255)");
