@@ -46,7 +46,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     FilterChain chain) throws ServletException, IOException {
 
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-
         if (header == null || !header.startsWith("Bearer ")) {
             chain.doFilter(request, response);
             return;
@@ -60,25 +59,36 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         try {
             if (!jwtService.isValid(token)) {
-                log.warn("JWT invalid (signature/exp). path={}", request.getRequestURI());
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
 
-            Claims claims = jwtService.parseClaims(token);
+            Claims claims = jwtService.extractAllClaims(token);
             Map<String, Object> claimsMap = new HashMap<>(claims);
 
-            String uid = asString(claimsMap.get("uid"));
-            String pid = asString(claimsMap.get("pid"));
-            String publicId = asString(claimsMap.get("publicId"));
+            String publicId = trimToNull(claimsMap.get("publicId"));
+            if (publicId == null) publicId = trimToNull(claimsMap.get("pid"));
 
-            String resolvedPublicId = firstNotBlank(pid, publicId);
-            if (resolvedPublicId != null) {
-                claimsMap.put("uid", resolvedPublicId);
-                claimsMap.put("pid", resolvedPublicId);
-                claimsMap.put("publicId", resolvedPublicId);
-            } else if (uid != null && uid.length() == 8) {
-                claimsMap.put("pid", uid);
+            if (publicId == null) {
+                String uid = trimToNull(claimsMap.get("uid"));
+                if (uid != null && uid.length() == 8) publicId = uid;
+            }
+
+            if (publicId == null) {
+                String sub = claims.getSubject();
+                if (sub != null && !sub.isBlank() && sub.trim().length() == 8) publicId = sub.trim();
+            }
+
+            if (publicId == null) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+
+            claimsMap.put("publicId", publicId);
+            claimsMap.put("pid", publicId);
+
+            if (!claimsMap.containsKey("jti") && claims.getId() != null) {
+                claimsMap.put("jti", claims.getId());
             }
 
             Instant iat = claims.getIssuedAt() != null ? claims.getIssuedAt().toInstant() : Instant.now();
@@ -86,20 +96,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             Jwt jwt = Jwt.withTokenValue(token)
                     .headers(h -> {
-                        h.put("alg", "HS256");
                         h.put("typ", "JWT");
+                        h.put("alg", "HS256");
                     })
                     .claims(c -> c.putAll(claimsMap))
-                    .subject(claims.getSubject())
+                    .subject(publicId)
                     .issuedAt(iat)
                     .expiresAt(exp)
                     .build();
 
             List<GrantedAuthority> authorities = extractAuthorities(claimsMap);
 
-            JwtAuthenticationToken auth = new JwtAuthenticationToken(jwt, authorities);
-            auth.setDetails(claimsMap.get("publicId")); // удобно доставать publicId как details
-
+            JwtAuthenticationToken auth = new JwtAuthenticationToken(jwt, authorities, publicId);
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             chain.doFilter(request, response);
@@ -112,7 +120,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     }
 
     private static List<GrantedAuthority> extractAuthorities(Map<String, Object> claims) {
-        // поддержка и role, и roles
         Object rolesObj = claims.get("roles");
         List<GrantedAuthority> out = new ArrayList<>();
 
@@ -130,21 +137,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         return out;
     }
 
-    private static String asString(Object v) {
-        return v == null ? null : v.toString();
-    }
-
-    private static String firstNotBlank(String a, String b) {
-        if (a != null && !a.isBlank()) return a;
-        if (b != null && !b.isBlank()) return b;
-        return null;
-    }
-
     private static String normalizeRole(String role) {
         if (role == null) return null;
         role = role.trim();
         if (role.isEmpty()) return null;
         if (!role.startsWith("ROLE_")) role = "ROLE_" + role;
         return role;
+    }
+
+    private static String asString(Object v) {
+        return v == null ? null : v.toString();
+    }
+
+    private static String trimToNull(Object v) {
+        if (v == null) return null;
+        String s = v.toString().trim();
+        return s.isEmpty() ? null : s;
     }
 }

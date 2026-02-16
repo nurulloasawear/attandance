@@ -6,18 +6,30 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
-@RequestMapping(value = "/api/users", produces = "application/json")
+@RequestMapping(value = "/api/internal/users", produces = "application/json")
 @RequiredArgsConstructor
 public class UserController {
 
     private final IUserService userService;
+
+    @GetMapping("/{publicId}")
+    public ResponseEntity<UserDto> getByPublicId(@PathVariable String publicId) {
+        return ResponseEntity.ok(userService.getUserByPublicId(publicId));
+    }
+
+    @GetMapping("/id/{id}")
+    public ResponseEntity<UserDto> getById(@PathVariable UUID id) {
+        return ResponseEntity.ok(userService.getUserById(id));
+    }
+
 
     @GetMapping("/me")
     public ResponseEntity<?> me(@AuthenticationPrincipal Jwt jwt) {
@@ -29,9 +41,10 @@ public class UserController {
         return ResponseEntity.ok(Map.of(
                 "username", jwt.getSubject(),
                 "uid", jwt.getClaimAsString("uid"),
+                "publicId", jwt.getClaimAsString("publicId"),
                 "role", jwt.getClaimAsString("role"),
                 "sid", jwt.getClaimAsString("sid"),
-                "jti", jwt.getClaimAsString("jti")
+                "jti", jwt.getId()
         ));
     }
 
@@ -39,8 +52,14 @@ public class UserController {
     public ResponseEntity<UserDto> myProfile(@AuthenticationPrincipal Jwt jwt) {
         if (jwt == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        String myPublicId = jwt.getClaimAsString("uid");
-        return ResponseEntity.ok(userService.getMyProfile(myPublicId));
+        UUID myId;
+        try {
+            myId = UUID.fromString(jwt.getClaimAsString("uid"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        return ResponseEntity.ok(userService.getUserById(myId));
     }
 
     @PatchMapping("/me/profile")
@@ -52,7 +71,15 @@ public class UserController {
     ) {
         if (jwt == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        String myPublicId = jwt.getClaimAsString("uid");
+        UUID myId;
+        try {
+            myId = UUID.fromString(jwt.getClaimAsString("uid"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        UserDto me = userService.getUserById(myId);
+        String myPublicId = me.getPublicId();
         String sid = jwt.getClaimAsString("sid");
 
         String ip = getClientIp(request);
@@ -80,7 +107,16 @@ public class UserController {
                     .body(Map.of("error", "Unauthorized", "message", "Missing or invalid access token"));
         }
 
-        String myPublicId = jwt.getClaimAsString("uid");
+        UUID myId;
+        try {
+            myId = UUID.fromString(jwt.getClaimAsString("uid"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized", "message", "Invalid uid in token"));
+        }
+
+        UserDto me = userService.getUserById(myId);
+        String myPublicId = me.getPublicId();
         String sid = jwt.getClaimAsString("sid");
 
         String ip = getClientIp(request);
@@ -90,6 +126,7 @@ public class UserController {
 
         return ResponseEntity.ok(Map.of(
                 "status", "deleted",
+                "id", myId.toString(),
                 "publicId", myPublicId
         ));
     }

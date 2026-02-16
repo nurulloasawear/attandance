@@ -32,26 +32,24 @@ public class UserSecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults()) // ✅ теперь реально работает из-за CorsConfigurationSource ниже
+                .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .httpBasic(b -> b.disable())
                 .formLogin(f -> f.disable())
                 .logout(l -> l.disable())
-
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ✅ Админ API
+                        .requestMatchers("/api/superadmin/**").hasAuthority("ROLE_SUPER_ADMIN")
                         .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN")
+                        .requestMatchers("/api/internal/**").authenticated()
 
                         .requestMatchers("/error").permitAll()
-
                         .anyRequest().authenticated()
                 )
-
                 .exceptionHandling(eh -> eh
                         .authenticationEntryPoint((req, res, ex) -> {
                             res.setStatus(401);
@@ -64,13 +62,11 @@ public class UserSecurityConfig {
                             res.getWriter().write("{\"error\":\"Forbidden\"}");
                         })
                 )
-
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // ✅ ВОТ ЭТО ГЛАВНОЕ: CORS настройка
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -84,11 +80,7 @@ public class UserSecurityConfig {
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
-
-        // если хочешь чтобы фронт читал Authorization header
         config.setExposedHeaders(List.of("Authorization"));
-
-        // ✅ можно отправлять cookies/authorization
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

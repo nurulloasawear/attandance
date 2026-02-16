@@ -362,7 +362,6 @@ public class DatabaseInitializer {
             execOptional("ALTER TABLE public.user_devices ADD COLUMN IF NOT EXISTS device_key VARCHAR(255)");
             execOptional("ALTER TABLE public.user_devices ALTER COLUMN device_key TYPE VARCHAR(255)");
 
-            // фикс banned=null
             execOptional("ALTER TABLE public.user_devices ALTER COLUMN banned SET DEFAULT FALSE");
             execOptional("UPDATE public.user_devices SET banned = FALSE WHERE banned IS NULL");
 

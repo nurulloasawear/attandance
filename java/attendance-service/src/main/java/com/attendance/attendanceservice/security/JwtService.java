@@ -3,6 +3,7 @@ package com.attendance.attendanceservice.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,14 @@ public class JwtService {
             throw new IllegalStateException("security.jwt.secret is required");
         }
 
-        byte[] bytes = secret.trim().getBytes(StandardCharsets.UTF_8);
+        String s = secret.trim();
+
+        byte[] bytes;
+        try {
+            bytes = Decoders.BASE64.decode(s);
+        } catch (Exception ignore) {
+            bytes = s.getBytes(StandardCharsets.UTF_8);
+        }
 
         if (bytes.length < 32) {
             throw new IllegalStateException(
@@ -61,17 +69,10 @@ public class JwtService {
     public String extractClaimString(String token, String name) {
         Object v = parseClaims(token).get(name);
         if (v == null) return null;
-
         String s = String.valueOf(v).trim();
         return s.isEmpty() ? null : s;
     }
 
-    /**
-     * roles может быть:
-     * 1) ["ADMIN","USER"]
-     * 2) "ADMIN,USER"
-     * 3) "ADMIN"
-     */
     public List<String> extractClaimStringList(String token, String name) {
         Object v = parseClaims(token).get(name);
         if (v == null) return null;
@@ -102,7 +103,7 @@ public class JwtService {
         return extractor.apply(parseClaims(token));
     }
 
-    Claims parseClaims(String token) {
+    public Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)
                 .build()
