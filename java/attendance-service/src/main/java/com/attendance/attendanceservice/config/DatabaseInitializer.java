@@ -66,14 +66,39 @@ public class DatabaseInitializer implements ApplicationRunner {
                 );
             """);
 
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS user_id UUID");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS user_public_id VARCHAR(64)");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS work_date DATE");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_in TIMESTAMPTZ");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS check_out TIMESTAMPTZ");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS status VARCHAR(32)");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS note TEXT");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS created_by VARCHAR(64)");
+            execOptional("ALTER TABLE public.attendance_records ADD COLUMN IF NOT EXISTS updated_by VARCHAR(64)");
+
+            // types/lengths (optional - won't crash)
             execOptional("ALTER TABLE public.attendance_records ALTER COLUMN user_public_id TYPE VARCHAR(64)");
             execOptional("ALTER TABLE public.attendance_records ALTER COLUMN created_by TYPE VARCHAR(64)");
             execOptional("ALTER TABLE public.attendance_records ALTER COLUMN updated_by TYPE VARCHAR(64)");
 
+            // defaults (optional)
+            execOptional("ALTER TABLE public.attendance_records ALTER COLUMN status SET DEFAULT 'PRESENT'");
+            execOptional("ALTER TABLE public.attendance_records ALTER COLUMN updated_at SET DEFAULT NOW()");
+            execOptional("ALTER TABLE public.attendance_records ALTER COLUMN created_at SET DEFAULT NOW()");
+
+            // ---- indexes ----
             execCritical("""
                 CREATE UNIQUE INDEX IF NOT EXISTS ux_attendance_user_date_active
                 ON public.attendance_records(user_id, work_date)
                 WHERE deleted_at IS NULL;
+            """);
+
+            execOptional("""
+                CREATE INDEX IF NOT EXISTS ix_attendance_user_id
+                ON public.attendance_records(user_id);
             """);
 
             execOptional("""
@@ -86,6 +111,12 @@ public class DatabaseInitializer implements ApplicationRunner {
                 ON public.attendance_records(user_public_id);
             """);
 
+            execOptional("""
+                CREATE INDEX IF NOT EXISTS ix_attendance_deleted_at
+                ON public.attendance_records(deleted_at);
+            """);
+
+            // ---- trigger ----
             execOptional("""
                 DO $$
                 BEGIN

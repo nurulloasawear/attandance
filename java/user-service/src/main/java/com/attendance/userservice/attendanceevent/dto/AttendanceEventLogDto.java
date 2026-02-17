@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-public record AttendanceEventLogDto(
+public record  AttendanceEventLogDto(
         UUID id,
         String eventId,
         String type,
