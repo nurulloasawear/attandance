@@ -4,6 +4,7 @@ import com.attendance.userservice.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -37,19 +38,30 @@ public class UserSecurityConfig {
                 .httpBasic(b -> b.disable())
                 .formLogin(f -> f.disable())
                 .logout(l -> l.disable())
+
                 .authorizeHttpRequests(auth -> auth
+                        // swagger / actuator
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
+
+                        // ✅ AUTH endpoints (чтобы не было проблем из-за разных префиксов)
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/auth/**").permitAll()          // <-- добавил под твой фронт-код
+
+                        // ✅ Preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // roles
                         .requestMatchers("/api/superadmin/**").hasAuthority("ROLE_SUPER_ADMIN")
                         .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN")
+
+                        // internal
                         .requestMatchers("/api/internal/**").authenticated()
 
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )
+
                 .exceptionHandling(eh -> eh
                         .authenticationEntryPoint((req, res, ex) -> {
                             res.setStatus(401);
@@ -62,6 +74,7 @@ public class UserSecurityConfig {
                             res.getWriter().write("{\"error\":\"Forbidden\"}");
                         })
                 )
+
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -71,17 +84,39 @@ public class UserSecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOrigins(List.of(
+        // ✅ Лучше patterns, чем fixed origins, если могут быть разные IP/домены
+        // (при allowCredentials нельзя "*", поэтому используем patterns)
+        config.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
                 "http://172.18.0.1:3000",
                 "http://192.168.2.104:3000"
+                // при необходимости добавишь: "http://*.yourdomain.com"
         ));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of("Authorization"));
+
+        // ✅ Явно перечисляем важные headers (стабильнее, чем "*")
+        config.setAllowedHeaders(List.of(
+                HttpHeaders.AUTHORIZATION,
+                HttpHeaders.CONTENT_TYPE,
+                HttpHeaders.ACCEPT,
+                "X-Requested-With",
+                "X-Request-Id"
+        ));
+
+        // Если ты отдаёшь JWT в Authorization header в ответах — ок
+        config.setExposedHeaders(List.of(
+                HttpHeaders.AUTHORIZATION,
+                "X-Request-Id"
+        ));
+
+        // ⚠️ Если ты НЕ используешь cookies — можешь поставить false.
+        // Но у тебя в фронте стоит credentials:'include', значит оставляем true.
         config.setAllowCredentials(true);
+
+        // (Optional) кэшировать preflight на 1 час
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

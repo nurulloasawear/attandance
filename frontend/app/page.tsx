@@ -1,161 +1,182 @@
 'use client';
 
-import Link from 'next/link';
-import { useAuth } from '@/lib/auth-context';
 import { Button } from '@/components/ui/button';
-import { LogOut, Lock, Zap, Shield } from 'lucide-react';
+import Link from 'next/link';
+import { Clock, Users, BarChart3, Lock, Zap, Shield } from 'lucide-react';
+
+const features = [
+  {
+    title: 'Smart Clock-In/Out',
+    description: 'One-tap attendance tracking with automatic timestamps',
+    icon: Clock,
+  },
+  {
+    title: 'Team Management',
+    description: 'Manage employees, roles, and permissions effortlessly',
+    icon: Users,
+  },
+  {
+    title: 'Real-Time Analytics',
+    description: 'Visualize attendance patterns and productivity metrics',
+    icon: BarChart3,
+  },
+  {
+    title: 'Secure Authentication',
+    description: 'JWT-based security with refresh token management',
+    icon: Lock,
+  },
+  {
+    title: 'Fast Performance',
+    description: 'Built for speed with optimized microservices architecture',
+    icon: Zap,
+  },
+  {
+    title: 'Data Protection',
+    description: 'Enterprise-grade security and data privacy standards',
+    icon: Shield,
+  },
+];
 
 export default function Home() {
-  const { isAuthenticated, user, logout } = useAuth();
-
   return (
-    <main className="min-h-screen bg-gradient-to-br from-background via-background to-card">
+    <div className="min-h-screen bg-white text-foreground">
       {/* Navigation */}
-      <nav className="border-b border-border backdrop-blur-xl bg-background/80">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-accent rounded-lg flex items-center justify-center">
-              <Lock className="w-6 h-6 text-accent-foreground" />
-            </div>
-            <span className="text-xl font-bold text-foreground">AuthApp</span>
+      <nav className="border-b border-border bg-white sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <div className="text-2xl font-bold text-primary">TimeChamp</div>
+          <div className="flex gap-4">
+            <Link href="/auth/login">
+              <Button variant="ghost">Sign In</Button>
+            </Link>
+            <Link href="/auth/register">
+              <Button>Get Started</Button>
+            </Link>
           </div>
-          {isAuthenticated && (
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">{user?.username}</span>
-              <button
-                onClick={logout}
-                className="flex items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-secondary rounded-lg transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                Выход
-              </button>
-            </div>
-          )}
         </div>
       </nav>
 
       {/* Hero Section */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Left Content */}
-          <div className="space-y-8">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-accent/10 rounded-full border border-accent/20">
-                <div className="w-2 h-2 bg-accent rounded-full animate-pulse" />
-                <span className="text-sm text-accent font-medium">Современная система аутентификации</span>
-              </div>
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32 text-center">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+          <h1 className="text-5xl md:text-7xl font-bold text-balance">
+            Employee Attendance
+            <span className="block text-primary">Made Simple</span>
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
+            The modern platform for tracking attendance, managing timesheets, and analyzing productivity. Built for teams of any size.
+          </p>
+          <div className="flex gap-4 justify-center pt-4">
+            <Link href="/auth/register">
+              <Button size="lg" className="h-12 px-8">Start Free Trial</Button>
+            </Link>
+            <Link href="#features">
+              <Button variant="outline" size="lg" className="h-12 px-8">Learn More</Button>
+            </Link>
+          </div>
+        </div>
+      </section>
 
-              <h1 className="text-5xl md:text-6xl font-bold text-foreground leading-tight">
-                Безопасный вход в ваш аккаунт
-              </h1>
-
-              <p className="text-xl text-muted-foreground leading-relaxed">
-                Быстрая и надежная система регистрации и входа с поддержкой JWT токенов, refresh механики и полной защитой данных.
-              </p>
+      {/* Quick Stats */}
+      <section className="bg-secondary py-12 border-y border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-3 gap-8 text-center">
+            <div>
+              <div className="text-3xl font-bold text-primary">1000+</div>
+              <p className="text-muted-foreground">Companies Trust Us</p>
             </div>
-
-            {/* CTA Buttons */}
-            {isAuthenticated ? (
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <Link href="/dashboard" className="flex-1">
-                  <Button className="w-full h-12 text-base bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-lg">
-                    Перейти в Dashboard
-                  </Button>
-                </Link>
-              </div>
-            ) : (
-              <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                <Link href="/register" className="flex-1">
-                  <Button className="w-full h-12 text-base bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-lg transition-all">
-                    Создать аккаунт
-                  </Button>
-                </Link>
-                <Link href="/login" className="flex-1">
-                  <button className="w-full px-6 h-12 text-base font-semibold text-accent border border-accent/30 rounded-lg hover:bg-accent/10 transition-colors">
-                    Вход
-                  </button>
-                </Link>
-              </div>
-            )}
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 pt-8 border-t border-border">
-              <div>
-                <div className="text-2xl font-bold text-accent">100%</div>
-                <div className="text-sm text-muted-foreground">Безопасность</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-accent">5мс</div>
-                <div className="text-sm text-muted-foreground">Отклик</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-accent">24/7</div>
-                <div className="text-sm text-muted-foreground">Поддержка</div>
-              </div>
+            <div>
+              <div className="text-3xl font-bold text-primary">99.9%</div>
+              <p className="text-muted-foreground">Uptime Guaranteed</p>
+            </div>
+            <div>
+              <div className="text-3xl font-bold text-primary">24/7</div>
+              <p className="text-muted-foreground">Support Available</p>
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* Right Visual */}
-          <div className="relative h-96 hidden lg:block">
-            <div className="absolute inset-0 bg-gradient-to-br from-accent/20 via-accent/5 to-transparent rounded-2xl border border-accent/20" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative">
-                {/* Animated circles */}
-                <div className="absolute w-64 h-64 bg-accent/10 rounded-full blur-3xl animate-pulse" />
-                <div className="absolute w-48 h-48 bg-accent/5 rounded-full blur-2xl left-12 top-12 animate-pulse" style={{ animationDelay: '1s' }} />
-                
-                {/* Center icon */}
-                <div className="relative z-10 flex items-center justify-center">
-                  <div className="w-24 h-24 bg-accent/10 rounded-2xl flex items-center justify-center border border-accent/30">
-                    <Lock className="w-12 h-12 text-accent" />
-                  </div>
+      {/* Features Grid */}
+      <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold mb-4">Powerful Features</h2>
+          <p className="text-lg text-muted-foreground">Everything you need to manage employee attendance</p>
+        </div>
+        <div className="grid md:grid-cols-3 gap-8">
+          {features.map((feature, i) => {
+            const Icon = feature.icon;
+            return (
+              <div
+                key={i}
+                className="p-6 border border-border rounded-2xl bg-white hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group"
+              >
+                <div className="w-12 h-12 rounded-lg bg-secondary flex items-center justify-center mb-4 group-hover:bg-primary group-hover:text-white transition-colors">
+                  <Icon className="w-6 h-6" />
                 </div>
+                <h3 className="text-lg font-semibold mb-2">{feature.title}</h3>
+                <p className="text-muted-foreground">{feature.description}</p>
               </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
+      </section>
 
-        {/* Features Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-20">
-          <div className="group p-6 rounded-xl border border-border bg-card/50 hover:bg-card/80 hover:border-accent/30 transition-all">
-            <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-accent/20 transition-colors">
-              <Shield className="w-6 h-6 text-accent" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Безопасность</h3>
-            <p className="text-muted-foreground">Защита паролей с помощью bcrypt и современные стандарты шифрования</p>
-          </div>
-
-          <div className="group p-6 rounded-xl border border-border bg-card/50 hover:bg-card/80 hover:border-accent/30 transition-all">
-            <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-accent/20 transition-colors">
-              <Zap className="w-6 h-6 text-accent" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Скорость</h3>
-            <p className="text-muted-foreground">Быстрая обработка запросов на порту 8081 с оптимизированным кодом</p>
-          </div>
-
-          <div className="group p-6 rounded-xl border border-border bg-card/50 hover:bg-card/80 hover:border-accent/30 transition-all">
-            <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-accent/20 transition-colors">
-              <Lock className="w-6 h-6 text-accent" />
-            </div>
-            <h3 className="text-lg font-semibold text-foreground mb-2">Надежность</h3>
-            <p className="text-muted-foreground">Обработка ошибок и стабильная работа при любых условиях</p>
-          </div>
+      {/* CTA Section */}
+      <section className="bg-primary text-white py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
+          <h2 className="text-4xl font-bold">Ready to Get Started?</h2>
+          <p className="text-lg opacity-90">Join hundreds of companies using TimeChamp for attendance management</p>
+          <Link href="/auth/register">
+            <Button size="lg" variant="secondary" className="h-12 px-8">
+              Start Your Free Trial
+            </Button>
+          </Link>
         </div>
-      </div>
+      </section>
 
       {/* Footer */}
-      <footer className="border-t border-border backdrop-blur-xl bg-background/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <p className="text-sm text-muted-foreground">
-              AuthApp © 2024. Современная система аутентификации.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              API запущен на порту <span className="text-accent font-semibold">8081</span>
-            </p>
+      <footer className="bg-white border-t border-border py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <div className="text-xl font-bold text-primary mb-4">TimeChamp</div>
+              <p className="text-muted-foreground">Modern attendance management for modern teams</p>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-muted-foreground">
+                <li><a href="#" className="hover:text-foreground">Features</a></li>
+                <li><a href="#" className="hover:text-foreground">Pricing</a></li>
+                <li><a href="#" className="hover:text-foreground">Security</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4">Company</h4>
+              <ul className="space-y-2 text-muted-foreground">
+                <li><a href="#" className="hover:text-foreground">About</a></li>
+                <li><a href="#" className="hover:text-foreground">Blog</a></li>
+                <li><a href="#" className="hover:text-foreground">Contact</a></li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold mb-4">Legal</h4>
+              <ul className="space-y-2 text-muted-foreground">
+                <li><a href="#" className="hover:text-foreground">Privacy</a></li>
+                <li><a href="#" className="hover:text-foreground">Terms</a></li>
+                <li><a href="#" className="hover:text-foreground">Compliance</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-border pt-8 flex justify-between items-center">
+            <p className="text-muted-foreground">&copy; 2026 TimeChamp. All rights reserved.</p>
+            <div className="flex gap-4 text-muted-foreground">
+              <a href="#" className="hover:text-foreground">Twitter</a>
+              <a href="#" className="hover:text-foreground">LinkedIn</a>
+              <a href="#" className="hover:text-foreground">GitHub</a>
+            </div>
           </div>
         </div>
       </footer>
-    </main>
+    </div>
   );
 }
