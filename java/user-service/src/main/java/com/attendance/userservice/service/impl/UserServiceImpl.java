@@ -13,6 +13,8 @@ import com.attendance.userservice.service.IUserService;
 import com.attendance.userservice.service.UserAuditLogService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,16 +45,107 @@ public class UserServiceImpl implements IUserService {
         }
         return getUserByPublicId(myPublicId);
     }
+
+    @Override
+    public Map<String, Object> me(Authentication auth) {
+        if (auth == null || !auth.isAuthenticated()) {
+            throw Errors.unauthorized("Missing or invalid access token");
+        }
+
+        Jwt jwt = extractJwt(auth);
+        if (jwt != null) {
+            return Map.of(
+                    "username", jwt.getSubject(),
+                    "uid", jwt.getClaimAsString("uid"),
+                    "publicId", jwt.getClaimAsString("publicId"),
+                    "role", jwt.getClaimAsString("role"),
+                    "sid", jwt.getClaimAsString("sid"),
+                    "jti", jwt.getId()
+            );
+        }
+
+        Map<String, Object> details = extractDetailsMap(auth);
+
+        return Map.of(
+                "username", auth.getName(),
+                "uid", asString(details.get("uid")),
+                "publicId", asString(details.get("publicId")),
+                "role", asString(details.get("role")),
+                "sid", asString(details.get("sid")),
+                "jti", asString(details.get("jti"))
+        );
+    }
+
+    @Override
+    public UserDto myProfile(Authentication auth) {
+        if (auth == null || !auth.isAuthenticated()) {
+            throw Errors.unauthorized("Missing or invalid access token");
+        }
+
+        Identity identity = extractIdentity(auth);
+        UserDto me = resolveMe(identity);
+
+        if (me == null) {
+            throw Errors.unauthorized("Cannot resolve current user");
+        }
+
+        return me;
+    }
+
     @Override
     @Transactional
-    public void changeRoleBySuperAdmin(
-            String targetPublicId,
-            String newRole,
-            String actorPublicId,
-            String sessionId,
-            String ip,
-            String device
-    ) {
+    public UserDto updateMyProfile(Authentication auth, UserDto dto, String rawPassword, String ip, String device) {
+        if (auth == null || !auth.isAuthenticated()) {
+            throw Errors.unauthorized("Missing or invalid access token");
+        }
+        if (dto == null) {
+            throw Errors.badRequest("body is required");
+        }
+
+        Identity identity = extractIdentity(auth);
+
+        UserDto me = resolveMe(identity);
+        if (me == null) {
+            throw Errors.unauthorized("Cannot resolve current user");
+        }
+
+        String myPublicId = me.getPublicId();
+
+        dto.setUsername(null);
+        dto.setEmail(null);
+        dto.setRole(null);
+
+        return updateUserByPublicId(
+                myPublicId,
+                dto,
+                rawPassword,
+                myPublicId,
+                identity.sid,
+                ip,
+                device
+        );
+    }
+
+    @Override
+    @Transactional
+    public void deleteMyAccount(Authentication auth, String ip, String device) {
+        if (auth == null || !auth.isAuthenticated()) {
+            throw Errors.unauthorized("Missing or invalid access token");
+        }
+
+        Identity identity = extractIdentity(auth);
+
+        UserDto me = resolveMe(identity);
+        if (me == null) {
+            throw Errors.unauthorized("Cannot resolve current user");
+        }
+
+        deleteUserByPublicId(me.getPublicId());
+    }
+
+    @Override
+    @Transactional
+    public void changeRoleBySuperAdmin(String targetPublicId, String newRole, String actorPublicId, String sessionId, String ip, String device) {
         require(targetPublicId, "publicId is required");
         require(newRole, "role is required");
 
@@ -68,75 +161,17 @@ public class UserServiceImpl implements IUserService {
         user.setRole(normalized);
         user.setUpdatedBy(actorPublicId);
 
-        userRepository.save(user);
+        User saved = userRepository.save(user);
 
         audit.log(
-                user,
-                com.attendance.userservice.model.audit.UserAction.USER_UPDATED,
+                saved,
+                UserAction.USER_UPDATED,
                 actorPublicId,
                 sessionId,
                 ip,
                 device,
                 "Role changed to " + normalized + " by SUPER_ADMIN"
         );
-    }
-
-    @Override
-    @Transactional
-    public UserDto updateMyProfile(
-            String myPublicId,
-            UserDto dto,
-            String rawPassword,
-            String sessionId,
-            String ip,
-            String device
-    ) {
-        if (myPublicId == null || myPublicId.isBlank()) {
-            throw Errors.badRequest("publicId is required");
-        }
-        if (dto == null) {
-            throw Errors.badRequest("body is required");
-        }
-
-        dto.setUsername(null);
-        dto.setEmail(null);
-        dto.setRole(null);
-
-        // actor = он сам
-        return updateUserByPublicId(
-                myPublicId,
-                dto,
-                rawPassword,
-                myPublicId,
-                sessionId,
-                ip,
-                device
-        );
-    }
-
-    @Override
-    @Transactional
-    public void deleteMyAccount(
-            String myPublicId,
-            String sessionId,
-            String ip,
-            String device
-    ) {
-        if (myPublicId == null || myPublicId.isBlank()) {
-            throw Errors.badRequest("publicId is required");
-        }
-
-        // ✅ soft delete уже логируется внутри deleteUserByPublicId
-        deleteUserByPublicId(myPublicId);
-
-        // 💡 если хочешь отдельно логировать как "self delete" — можно так:
-    /*
-    User user = userRepository.findByPublicIdAndDeletedAtIsNull(myPublicId)
-            .orElse(null);
-    if (user != null) {
-        audit.log(user, UserAction.USER_DELETED, myPublicId, sessionId, ip, device, "User deleted own account");
-    }
-    */
     }
 
     @Override
@@ -147,7 +182,6 @@ public class UserServiceImpl implements IUserService {
                 .toList();
     }
 
-    @Override
     public List<DeviceDto> getAllDevices() {
         return userDeviceRepository.findAllByOrderByLastSeenAtDesc()
                 .stream()
@@ -166,7 +200,6 @@ public class UserServiceImpl implements IUserService {
                 .toList();
     }
 
-    @Override
     @Transactional
     public void banDevice(UUID deviceId, String reason) {
         var device = userDeviceRepository.findById(deviceId)
@@ -179,7 +212,6 @@ public class UserServiceImpl implements IUserService {
         userDeviceRepository.save(device);
     }
 
-    @Override
     @Transactional
     public void unbanDevice(UUID deviceId) {
         var device = userDeviceRepository.findById(deviceId)
@@ -195,7 +227,6 @@ public class UserServiceImpl implements IUserService {
     @Override
     @Transactional
     public UserDto createUser(UserDto dto, String rawPassword) {
-
         if (dto == null) throw Errors.badRequest("body is required");
         require(dto.getUsername(), "username is required");
         require(dto.getEmail(), "email is required");
@@ -234,7 +265,7 @@ public class UserServiceImpl implements IUserService {
         audit.log(
                 saved,
                 UserAction.USER_CREATED,
-                saved.getPublicId(), // actor (пока сам user)
+                saved.getPublicId(),
                 null,
                 null,
                 null,
@@ -243,8 +274,6 @@ public class UserServiceImpl implements IUserService {
 
         return mapToDto(saved);
     }
-
-
 
     @Override
     public UserDto getUserById(UUID id) {
@@ -273,8 +302,6 @@ public class UserServiceImpl implements IUserService {
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
     }
 
-
-
     @Override
     public String getUserRoleById(UUID id) {
         if (id == null) throw Errors.badRequest("id is required");
@@ -301,7 +328,6 @@ public class UserServiceImpl implements IUserService {
                 .map(User::getRole)
                 .orElseThrow(() -> Errors.notFound("User not found", Map.of("publicId", publicId)));
     }
-
 
     @Override
     @Transactional
@@ -378,8 +404,6 @@ public class UserServiceImpl implements IUserService {
         );
     }
 
-
-
     @Override
     @Transactional
     public void deactivateUserByPublicId(String publicId, String actorPublicId, String sessionId, String ip, String device) {
@@ -413,19 +437,9 @@ public class UserServiceImpl implements IUserService {
         );
     }
 
-
-
     @Override
     @Transactional
-    public UserDto updateUserByPublicId(
-            String publicId,
-            UserDto dto,
-            String rawPassword,
-            String actorPublicId,
-            String sessionId,
-            String ip,
-            String device
-    ) {
+    public UserDto updateUserByPublicId(String publicId, UserDto dto, String rawPassword, String actorPublicId, String sessionId, String ip, String device) {
         require(publicId, "publicId is required");
         if (dto == null) throw Errors.badRequest("body is required");
 
@@ -447,7 +461,6 @@ public class UserServiceImpl implements IUserService {
             changed = true;
         }
 
-
         if (dto.getEmail() != null) {
             String newEmail = dto.getEmail().trim();
             if (newEmail.isBlank()) throw Errors.badRequest("email cannot be blank");
@@ -460,7 +473,6 @@ public class UserServiceImpl implements IUserService {
             user.setEmail(newEmail);
             changed = true;
         }
-
 
         if (dto.getFirstName() != null) {
             user.setFirstName(dto.getFirstName());
@@ -475,7 +487,6 @@ public class UserServiceImpl implements IUserService {
             user.setRole(normalizeRole(dto.getRole()));
             changed = true;
         }
-
 
         if (rawPassword != null && !rawPassword.isBlank()) {
             user.setPassword(passwordEncoder.encode(rawPassword));
@@ -503,7 +514,6 @@ public class UserServiceImpl implements IUserService {
         return mapToDto(saved);
     }
 
-    @Override
     public List<AdminDeviceDto> getAllDevicesAdmin() {
         return jdbc.query("""
         SELECT d.id,
@@ -539,6 +549,93 @@ public class UserServiceImpl implements IUserService {
                 .bannedReason(rs.getString("banned_reason"))
                 .build()
         );
+    }
+
+    private UserDto resolveMe(Identity identity) {
+        if (identity.uid != null) {
+            try {
+                return getUserById(identity.uid);
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (identity.publicId != null && !identity.publicId.isBlank()) {
+            try {
+                return getUserByPublicId(identity.publicId);
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (identity.username != null && !identity.username.isBlank()) {
+            try {
+                return getUserByUsername(identity.username);
+            } catch (Exception ignored) {
+            }
+        }
+
+        return null;
+    }
+
+    private Identity extractIdentity(Authentication auth) {
+        Jwt jwt = extractJwt(auth);
+        if (jwt != null) {
+            UUID uid = null;
+            try {
+                String uidStr = jwt.getClaimAsString("uid");
+                if (uidStr != null && !uidStr.isBlank()) uid = UUID.fromString(uidStr);
+            } catch (Exception ignored) {
+            }
+
+            return new Identity(
+                    jwt.getSubject(),
+                    uid,
+                    jwt.getClaimAsString("publicId"),
+                    jwt.getClaimAsString("role"),
+                    jwt.getClaimAsString("sid"),
+                    jwt.getId()
+            );
+        }
+
+        Map<String, Object> details = extractDetailsMap(auth);
+
+        UUID uid = null;
+        try {
+            String uidStr = asString(details.get("uid"));
+            if (uidStr != null && !uidStr.isBlank()) uid = UUID.fromString(uidStr);
+        } catch (Exception ignored) {
+        }
+
+        return new Identity(
+                auth.getName(),
+                uid,
+                asString(details.get("publicId")),
+                asString(details.get("role")),
+                asString(details.get("sid")),
+                asString(details.get("jti"))
+        );
+    }
+
+    private Jwt extractJwt(Authentication auth) {
+        Object p = auth.getPrincipal();
+        if (p instanceof Jwt j) return j;
+
+        Object details = auth.getDetails();
+        if (details instanceof Jwt j) return j;
+
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> extractDetailsMap(Authentication auth) {
+        Object details = auth.getDetails();
+        if (details instanceof Map<?, ?> m) {
+            return (Map<String, Object>) m;
+        }
+        return Map.of();
+    }
+
+    private String asString(Object v) {
+        return v == null ? null : String.valueOf(v);
     }
 
     private void softDeleteById(UUID id) {
@@ -595,5 +692,23 @@ public class UserServiceImpl implements IUserService {
                 user.getRole(),
                 user.isActive()
         );
+    }
+
+    private static class Identity {
+        final String username;
+        final UUID uid;
+        final String publicId;
+        final String role;
+        final String sid;
+        final String jti;
+
+        private Identity(String username, UUID uid, String publicId, String role, String sid, String jti) {
+            this.username = username;
+            this.uid = uid;
+            this.publicId = publicId;
+            this.role = role;
+            this.sid = sid;
+            this.jti = jti;
+        }
     }
 }

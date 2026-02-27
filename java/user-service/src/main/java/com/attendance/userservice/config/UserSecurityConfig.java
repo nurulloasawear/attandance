@@ -4,6 +4,7 @@ import com.attendance.userservice.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
@@ -30,8 +31,10 @@ public class UserSecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    @Order(1)
+    public SecurityFilterChain authChain(HttpSecurity http) throws Exception {
         http
+                .securityMatcher("/api/auth/**")
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -39,24 +42,51 @@ public class UserSecurityConfig {
                 .formLogin(f -> f.disable())
                 .logout(l -> l.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // swagger / actuator
+                        .requestMatchers(HttpMethod.OPTIONS, "/api/auth/**").permitAll()
+                        .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/refresh").permitAll()
+                        .requestMatchers("/api/auth/logout").authenticated()
+                        .anyRequest().denyAll()
+                )
+                .exceptionHandling(eh -> eh
+                        .authenticationEntryPoint((req, res, ex) -> {
+                            res.setStatus(401);
+                            res.setContentType("application/json");
+                            res.getWriter().write("{\"error\":\"Unauthorized\"}");
+                        })
+                        .accessDeniedHandler((req, res, ex) -> {
+                            res.setStatus(403);
+                            res.setContentType("application/json");
+                            res.getWriter().write("{\"error\":\"Forbidden\"}");
+                        })
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain apiChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/**")
+                .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults())
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .httpBasic(b -> b.disable())
+                .formLogin(f -> f.disable())
+                .logout(l -> l.disable())
+                .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
-
-                        // auth endpoints (если вдруг они есть в user-service)
-                        .requestMatchers("/api/auth/**", "/auth/**").permitAll()
-
-                        // preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/error").permitAll()
 
-                        // roles
                         .requestMatchers("/api/superadmin/**").hasAuthority("ROLE_SUPER_ADMIN")
                         .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN")
 
-                        // internal
                         .requestMatchers("/api/internal/**").authenticated()
+                        .requestMatchers("/api/v1/**").authenticated()
 
-                        .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(eh -> eh
@@ -80,16 +110,13 @@ public class UserSecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // ✅ Добавили твой Network URL: http://10.50.9.180:3000
-        // ✅ Добавили dev patterns (удобно когда IP меняется)
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
                 "http://127.0.0.1:3000",
-
-                "http://10.50.9.180:3000",   // ✅ важно для твоего кейса
-                "http://10.*.*.*:3000",      // ✅ dev pattern
-                "http://172.*.*.*:3000",     // ✅ dev pattern
-                "http://192.168.*.*:3000"    // ✅ dev pattern
+                "http://10.50.9.180:3000",
+                "http://10.*.*.*:3000",
+                "http://172.*.*.*:3000",
+                "http://192.168.*.*:3000"
         ));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
@@ -99,7 +126,10 @@ public class UserSecurityConfig {
                 HttpHeaders.CONTENT_TYPE,
                 HttpHeaders.ACCEPT,
                 "X-Requested-With",
-                "X-Request-Id"
+                "X-Request-Id",
+                "X-Device",
+                "X-Forwarded-For",
+                "X-Real-IP"
         ));
 
         config.setExposedHeaders(List.of(
@@ -107,9 +137,7 @@ public class UserSecurityConfig {
                 "X-Request-Id"
         ));
 
-        // ⚠️ Если cookies не используешь — можешь поставить false и убрать credentials:'include' на фронте
         config.setAllowCredentials(true);
-
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

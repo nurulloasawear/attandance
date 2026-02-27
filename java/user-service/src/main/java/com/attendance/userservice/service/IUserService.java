@@ -3,17 +3,16 @@ package com.attendance.userservice.service;
 import com.attendance.commonlib.dto.UserDto;
 import com.attendance.userservice.dto.AdminDeviceDto;
 import com.attendance.userservice.dto.DeviceDto;
+import org.springframework.security.core.Authentication;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface IUserService {
 
+    // ===== Public CRUD / queries =====
     UserDto createUser(UserDto userDto, String rawPassword);
-    List<DeviceDto> getAllDevices();
-    void banDevice(UUID deviceId, String reason);
-    void unbanDevice(UUID deviceId);
-
 
     UserDto getUserById(UUID id);
 
@@ -22,29 +21,34 @@ public interface IUserService {
     UserDto getUserByPublicId(String publicId);
 
     List<UserDto> getAllUsers();
+
     String getUserRoleById(UUID id);
 
     String getUserRoleByUsername(String username);
 
     String getUserRoleByPublicId(String publicId);
+
     UserDto getMyProfile(String myPublicId);
 
+    Map<String, Object> me(Authentication auth);
+
+    UserDto myProfile(Authentication auth);
+
     UserDto updateMyProfile(
-            String myPublicId,
+            Authentication auth,
             UserDto dto,
             String rawPassword,
-            String sessionId,
             String ip,
             String device
     );
 
     void deleteMyAccount(
-            String myPublicId,
-            String sessionId,
+            Authentication auth,
             String ip,
             String device
     );
 
+    // ===== Admin / SuperAdmin actions =====
     void changeRoleBySuperAdmin(
             String targetPublicId,
             String newRole,
@@ -72,7 +76,6 @@ public interface IUserService {
             String device
     );
 
-
     void deleteUserById(UUID id);
 
     void deleteUserByUsername(String username);
@@ -80,6 +83,13 @@ public interface IUserService {
     void deleteUserByEmail(String email);
 
     void deleteUserByPublicId(String publicId);
+
+    // ===== Devices =====
+    List<DeviceDto> getAllDevices();
+
+    void banDevice(UUID deviceId, String reason);
+
+    void unbanDevice(UUID deviceId);
 
     List<AdminDeviceDto> getAllDevicesAdmin();
 }

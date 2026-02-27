@@ -5,103 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="9489758c-4a94-4c4d-85c5-e71bb7b9f5d5" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/API_INTEGRATION.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/SETUP_GUIDE.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/app/attendance/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/app/layout.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/app/overview/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/app/reports/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/app/settings/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/app/team/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/app/timesheets/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/auth/login/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/auth/register/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/globals.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/layout.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/page.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/dashboard-sidebar.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/dashboard-topbar.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/theme-provider.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/accordion.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/alert-dialog.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/alert.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/aspect-ratio.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/avatar.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/badge.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/breadcrumb.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/button-group.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/button.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/calendar.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/card.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/carousel.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/chart.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/checkbox.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/collapsible.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/command.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/context-menu.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/dialog.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/drawer.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/dropdown-menu.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/empty.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/field.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/form.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/hover-card.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/input-group.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/input-otp.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/input.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/item.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/kbd.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/label.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/menubar.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/navigation-menu.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/pagination.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/popover.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/progress.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/radio-group.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/resizable.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/scroll-area.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/select.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/separator.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/sheet.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/sidebar.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/skeleton.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/slider.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/sonner.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/spinner.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/switch.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/table.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/tabs.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/textarea.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/toast.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/toaster.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/toggle-group.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/toggle.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/tooltip.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/use-mobile.tsx" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/components/ui/use-toast.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/hooks/use-mobile.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/hooks/use-toast.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/api-client.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/utils.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/next.config.mjs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/postcss.config.mjs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/public/apple-icon.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/public/icon-dark-32x32.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/public/icon-light-32x32.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/public/icon.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/public/placeholder-logo.png" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/public/placeholder-logo.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/public/placeholder-user.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/public/placeholder.jpg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/public/placeholder.svg" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/styles/globals.css" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/../java/user-service/src/main/java/com/attendance/userservice/config/UserSecurityConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/../java/user-service/src/main/java/com/attendance/userservice/config/UserSecurityConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../java/user-service/src/main/java/com/attendance/userservice/controller/UserController.java" beforeDir="false" afterPath="$PROJECT_DIR$/../java/user-service/src/main/java/com/attendance/userservice/controller/UserController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../java/user-service/src/main/java/com/attendance/userservice/service/IUserService.java" beforeDir="false" afterPath="$PROJECT_DIR$/../java/user-service/src/main/java/com/attendance/userservice/service/IUserService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../java/user-service/src/main/java/com/attendance/userservice/service/impl/UserServiceImpl.java" beforeDir="false" afterPath="$PROJECT_DIR$/../java/user-service/src/main/java/com/attendance/userservice/service/impl/UserServiceImpl.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -111,39 +19,39 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 0
-}]]></component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 0
+}</component>
   <component name="ProjectId" id="3AFR71FuUvJyup3woWUwoEmmbk6" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
-    "com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1": "true",
-    "git-widget-placeholder": "test",
-    "javascript.preferred.runtime.type.id": "node",
-    "js.debugger.nextJs.config.created.client": "true",
-    "js.debugger.nextJs.config.created.server": "true",
-    "junie.onboarding.icon.badge.shown": "true",
-    "last_opened_file_path": "/home/shaxriyor/Desktop/attandance/frontend",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "npm.Next.js: server-side.executor": "Run",
-    "to.speed.mode.migration.done": "true",
-    "ts.external.directory.path": "/home/shaxriyor/Desktop/attandance/frontend/node_modules/typescript/lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;test&quot;,
+    &quot;javascript.preferred.runtime.type.id&quot;: &quot;node&quot;,
+    &quot;js.debugger.nextJs.config.created.client&quot;: &quot;true&quot;,
+    &quot;js.debugger.nextJs.config.created.server&quot;: &quot;true&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/home/shaxriyor/Desktop/attandance/frontend&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;npm.Next.js: server-side.executor&quot;: &quot;Run&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;/home/shaxriyor/Desktop/attandance/frontend/node_modules/typescript/lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager" selected="npm.Next.js: server-side">
     <configuration name="Next.js: debug client-side" type="JavascriptDebugType" uri="http://localhost:3000/">
       <method v="2" />
@@ -174,6 +82,8 @@
       <option name="presentableId" value="Default" />
       <updated>1772186160744</updated>
       <workItem from="1772186161910" duration="4714000" />
+      <workItem from="1772210258430" duration="250000" />
+      <workItem from="1772211255533" duration="378000" />
     </task>
     <servers />
   </component>
