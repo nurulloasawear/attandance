@@ -44,4 +44,7 @@
       <module name="user-service" options="-parameters -parameters" />
     </option>
   </component>
+  <component name="TypeScriptCompiler">
+    <option name="useServicePoweredTypesWasEnabledByExperiment" value="true" />
+  </component>
 </project>
