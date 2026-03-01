@@ -3,119 +3,140 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* =========================================================
-   Premium HEX Theme (shadcn compatible)
-   - softer background + subtle gradients
-   - better card/popover separation
-   - modern blue primary
-   - improved dark mode contrast
-   ========================================================= */
-
+/* -------------------------------------------------------
+   Premium Theme Tokens (OKLCH)
+   - Softer backgrounds
+   - Stronger brand gradient
+   - Better contrast in dark mode
+   - Extra tokens: shadow, glow, glass
+-------------------------------------------------------- */
 :root {
   /* Base */
-  --background: #f7f8fb;
-  --foreground: #0f172a;
+  --background: oklch(0.985 0.01 260);
+  --foreground: oklch(0.18 0.02 260);
 
   /* Surfaces */
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
+  --card: oklch(0.996 0.006 260);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.996 0.006 260);
+  --popover-foreground: var(--foreground);
 
-  /* Brand */
-  --primary: #2563eb;
-  --primary-foreground: #ffffff;
+  /* Brand / Actions */
+  --primary: oklch(0.56 0.19 255);
+  --primary-foreground: oklch(0.985 0 0);
+  --primary-2: oklch(0.62 0.18 265); /* gradient helper */
+  --ring: oklch(0.68 0.13 255);
 
-  /* Neutral */
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
+  /* Neutral UI */
+  --secondary: oklch(0.968 0.01 260);
+  --secondary-foreground: oklch(0.22 0.02 260);
 
-  --muted: #eef2f7;
-  --muted-foreground: #64748b;
+  --muted: oklch(0.965 0.01 260);
+  --muted-foreground: oklch(0.52 0.02 260);
 
-  --accent: #1d4ed8;
-  --accent-foreground: #ffffff;
+  --accent: oklch(0.955 0.025 255);
+  --accent-foreground: oklch(0.22 0.02 260);
 
   /* Feedback */
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
+  --destructive: oklch(0.58 0.21 25);
+  --destructive-foreground: oklch(0.985 0 0);
 
-  /* Borders / Inputs / Focus */
-  --border: #e6eaf0;
-  --input: #ffffff;
-  --ring: #3b82f6;
+  /* Borders / Inputs */
+  --border: oklch(0.9 0.012 260);
+  --input: oklch(0.93 0.012 260);
 
   /* Charts */
-  --chart-1: #2563eb;
-  --chart-2: #0ea5e9;
-  --chart-3: #22c55e;
-  --chart-4: #f59e0b;
-  --chart-5: #a855f7;
+  --chart-1: oklch(0.62 0.18 255);
+  --chart-2: oklch(0.65 0.14 160);
+  --chart-3: oklch(0.62 0.12 40);
+  --chart-4: oklch(0.74 0.14 300);
+  --chart-5: oklch(0.78 0.12 85);
 
   /* Radius */
-  --radius: 1rem;
+  --radius: 0.95rem;
 
   /* Sidebar */
-  --sidebar: #ffffff;
-  --sidebar-foreground: #0f172a;
-  --sidebar-primary: #2563eb;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f1f5f9;
-  --sidebar-accent-foreground: #0f172a;
-  --sidebar-border: #e6eaf0;
-  --sidebar-ring: #3b82f6;
+  --sidebar: oklch(0.985 0.01 260);
+  --sidebar-foreground: oklch(0.18 0.02 260);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.965 0.015 255);
+  --sidebar-accent-foreground: oklch(0.22 0.02 260);
+  --sidebar-border: oklch(0.9 0.012 260);
+  --sidebar-ring: var(--ring);
+
+  /* Premium extras */
+  --shadow-sm: 0 1px 2px oklch(0.2 0.02 260 / 0.06), 0 1px 1px oklch(0.2 0.02 260 / 0.04);
+  --shadow-md: 0 10px 30px oklch(0.2 0.02 260 / 0.10), 0 2px 8px oklch(0.2 0.02 260 / 0.06);
+  --shadow-lg: 0 22px 60px oklch(0.2 0.02 260 / 0.16), 0 6px 18px oklch(0.2 0.02 260 / 0.10);
+
+  --glass: oklch(0.995 0.006 260 / 0.72);
+  --glass-border: oklch(0.9 0.012 260 / 0.55);
+
+  --glow: 0 0 0 3px oklch(0.68 0.13 255 / 0.25);
 }
 
 .dark {
   /* Base */
-  --background: #0b1220;
-  --foreground: #e5e7eb;
+  --background: oklch(0.13 0.015 260);
+  --foreground: oklch(0.97 0.01 260);
 
   /* Surfaces */
-  --card: #0f172a;
-  --card-foreground: #e5e7eb;
-  --popover: #0f172a;
-  --popover-foreground: #e5e7eb;
+  --card: oklch(0.17 0.016 260);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.17 0.016 260);
+  --popover-foreground: var(--foreground);
 
   /* Brand */
-  --primary: #60a5fa;
-  --primary-foreground: #0b1220;
+  --primary: oklch(0.72 0.16 255);
+  --primary-foreground: oklch(0.12 0.02 260);
+  --primary-2: oklch(0.76 0.14 270);
+  --ring: oklch(0.7 0.12 255);
 
-  /* Neutral */
-  --secondary: #111c33;
-  --secondary-foreground: #e5e7eb;
+  /* Neutral UI */
+  --secondary: oklch(0.22 0.015 260);
+  --secondary-foreground: oklch(0.97 0.01 260);
 
-  --muted: #0f1b31;
-  --muted-foreground: #9aa4b2;
+  --muted: oklch(0.22 0.015 260);
+  --muted-foreground: oklch(0.72 0.02 260);
 
-  --accent: #3b82f6;
-  --accent-foreground: #0b1220;
+  --accent: oklch(0.24 0.03 255);
+  --accent-foreground: oklch(0.97 0.01 260);
 
   /* Feedback */
-  --destructive: #fb7185;
-  --destructive-foreground: #0b1220;
+  --destructive: oklch(0.62 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
 
-  /* Borders / Inputs / Focus */
-  --border: #1c2a4a;
-  --input: #0f1b31;
-  --ring: #60a5fa;
+  /* Borders / Inputs */
+  --border: oklch(0.26 0.016 260);
+  --input: oklch(0.28 0.016 260);
 
   /* Charts */
-  --chart-1: #60a5fa;
-  --chart-2: #38bdf8;
-  --chart-3: #4ade80;
-  --chart-4: #fbbf24;
-  --chart-5: #c084fc;
+  --chart-1: oklch(0.7 0.16 255);
+  --chart-2: oklch(0.72 0.12 160);
+  --chart-3: oklch(0.72 0.12 40);
+  --chart-4: oklch(0.74 0.14 300);
+  --chart-5: oklch(0.8 0.12 85);
 
   /* Sidebar */
-  --sidebar: #0f172a;
-  --sidebar-foreground: #e5e7eb;
-  --sidebar-primary: #60a5fa;
-  --sidebar-primary-foreground: #0b1220;
-  --sidebar-accent: #111c33;
-  --sidebar-accent-foreground: #e5e7eb;
-  --sidebar-border: #1c2a4a;
-  --sidebar-ring: #60a5fa;
+  --sidebar: oklch(0.155 0.016 260);
+  --sidebar-foreground: oklch(0.97 0.01 260);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: oklch(0.12 0.02 260);
+  --sidebar-accent: oklch(0.22 0.02 255);
+  --sidebar-accent-foreground: oklch(0.97 0.01 260);
+  --sidebar-border: oklch(0.26 0.016 260);
+  --sidebar-ring: var(--ring);
+
+  /* Premium extras (dark) */
+  --shadow-sm: 0 1px 2px oklch(0.05 0.02 260 / 0.55);
+  --shadow-md: 0 10px 30px oklch(0.05 0.02 260 / 0.65), 0 2px 10px oklch(0.05 0.02 260 / 0.35);
+  --shadow-lg: 0 26px 70px oklch(0.05 0.02 260 / 0.75), 0 10px 22px oklch(0.05 0.02 260 / 0.40);
+
+  --glass: oklch(0.18 0.016 260 / 0.72);
+  --glass-border: oklch(0.3 0.016 260 / 0.45);
+
+  --glow: 0 0 0 3px oklch(0.7 0.12 255 / 0.22);
 }
 
 @theme inline {
@@ -156,10 +177,10 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  --radius-sm: calc(var(--radius) - 6px);
-  --radius-md: calc(var(--radius) - 3px);
+  --radius-sm: calc(var(--radius) - 8px);
+  --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 6px);
+  --radius-xl: calc(var(--radius) + 8px);
 
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -171,28 +192,84 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* -------------------------------------------------------
+   Base Styles
+-------------------------------------------------------- */
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
 
+  html {
+    text-rendering: geometricPrecision;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
-    /* premium subtle gradient */
+    /* Premium background: blobs + subtle grid + vignette */
     background-image:
-            radial-gradient(900px 500px at 15% -10%, rgba(37, 99, 235, 0.10), transparent 60%),
-            radial-gradient(900px 500px at 85% 0%, rgba(14, 165, 233, 0.08), transparent 60%),
-            radial-gradient(900px 500px at 50% 110%, rgba(34, 197, 94, 0.06), transparent 60%);
+            radial-gradient(1200px 650px at 12% -12%, oklch(0.95 0.05 255 / 0.65), transparent 60%),
+            radial-gradient(1050px 650px at 88% 0%, oklch(0.94 0.05 160 / 0.55), transparent 55%),
+            radial-gradient(900px 520px at 50% 112%, oklch(0.96 0.04 40 / 0.50), transparent 60%),
+            linear-gradient(to bottom, oklch(1 0 0 / 0.0), oklch(0.2 0.02 260 / 0.03)),
+            linear-gradient(to right, oklch(0.2 0.02 260 / 0.04) 1px, transparent 1px),
+            linear-gradient(to bottom, oklch(0.2 0.02 260 / 0.04) 1px, transparent 1px);
+    background-size: auto, auto, auto, auto, 48px 48px, 48px 48px;
+    background-position: center, center, center, center, center, center;
   }
 
   .dark body {
     background-image:
-            radial-gradient(900px 500px at 15% -10%, rgba(96, 165, 250, 0.18), transparent 60%),
-            radial-gradient(900px 500px at 85% 0%, rgba(56, 189, 248, 0.10), transparent 60%),
-            radial-gradient(900px 500px at 50% 110%, rgba(74, 222, 128, 0.08), transparent 60%);
+            radial-gradient(1200px 650px at 12% -12%, oklch(0.28 0.08 255 / 0.38), transparent 60%),
+            radial-gradient(1050px 650px at 88% 0%, oklch(0.26 0.06 160 / 0.28), transparent 55%),
+            radial-gradient(900px 520px at 50% 112%, oklch(0.3 0.06 40 / 0.22), transparent 60%),
+            linear-gradient(to bottom, oklch(0 0 0 / 0.0), oklch(0 0 0 / 0.25)),
+            linear-gradient(to right, oklch(0.97 0.01 260 / 0.05) 1px, transparent 1px),
+            linear-gradient(to bottom, oklch(0.97 0.01 260 / 0.05) 1px, transparent 1px);
+    background-size: auto, auto, auto, auto, 52px 52px, 52px 52px;
+    background-position: center, center, center, center, center, center;
   }
 
   ::selection {
-    background: rgba(59, 130, 246, 0.25);
+    background: oklch(0.72 0.16 255 / 0.35);
+  }
+
+  /* Better focus everywhere */
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--glow);
+    border-color: color-mix(in oklch, var(--ring) 70%, var(--border));
+  }
+}
+
+/* -------------------------------------------------------
+   Utility helpers (optional classes you can use in JSX)
+-------------------------------------------------------- */
+@layer utilities {
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .shadow-premium {
+    box-shadow: var(--shadow-lg);
+  }
+
+  .btn-gradient {
+    background-image: linear-gradient(135deg, var(--primary), var(--primary-2));
+    color: var(--primary-foreground);
+  }
+
+  .btn-gradient:hover {
+    filter: brightness(1.03);
+  }
+
+  .hairline {
+    border-color: color-mix(in oklch, var(--border) 70%, transparent);
   }
 }

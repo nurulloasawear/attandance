@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   ArrowRight,
   Sparkles,
+  ChevronRight,
+  Activity,
 } from 'lucide-react';
 
 const features = [
@@ -43,7 +45,7 @@ const features = [
   },
   {
     title: 'Data Protection',
-    description: 'Enterprise-grade practices with privacy-first defaults and audit logs.',
+    description: 'Privacy-first defaults, audit logs, and enterprise-grade practices.',
     icon: Shield,
   },
 ];
@@ -55,24 +57,46 @@ const perks = [
   'Audit logs for key actions',
 ];
 
+const steps = [
+  {
+    title: 'Create workspace',
+    desc: 'Register and create your company workspace in minutes.',
+    icon: Sparkles,
+  },
+  {
+    title: 'Invite team',
+    desc: 'Add employees, assign roles, set permissions.',
+    icon: Users,
+  },
+  {
+    title: 'Track & analyze',
+    desc: 'Clock-in/out, dashboards, exports, audit trail.',
+    icon: Activity,
+  },
+];
+
 export default function Home() {
   return (
       <div className="min-h-screen bg-background text-foreground">
-        {/* Soft background */}
+        {/* Premium background */}
         <div className="pointer-events-none fixed inset-0 -z-10">
-          <div className="absolute left-1/2 top-[-140px] h-[420px] w-[820px] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
-          <div className="absolute right-[-120px] top-[240px] h-[360px] w-[520px] rounded-full bg-blue-500/10 blur-3xl" />
-          <div className="absolute left-[-120px] top-[520px] h-[360px] w-[520px] rounded-full bg-indigo-500/10 blur-3xl" />
+          <div className="absolute left-1/2 top-[-160px] h-[460px] w-[920px] -translate-x-1/2 rounded-full bg-primary/15 blur-3xl" />
+          <div className="absolute right-[-140px] top-[260px] h-[380px] w-[560px] rounded-full bg-blue-500/10 blur-3xl" />
+          <div className="absolute left-[-140px] top-[560px] h-[380px] w-[560px] rounded-full bg-indigo-500/10 blur-3xl" />
         </div>
 
         {/* Navigation */}
-        <nav className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur">
+        <nav className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-            <Link href="/" className="flex items-center gap-2">
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Link href="/" className="group flex items-center gap-2">
+            <span className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-border/60 transition-all group-hover:bg-primary group-hover:text-primary-foreground">
               <Sparkles className="h-5 w-5" />
             </span>
-              <span className="text-lg font-semibold tracking-tight">TimeChamp</span>
+              <span className="text-lg font-semibold tracking-tight">
+              <span className="bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
+                TimeChamp
+              </span>
+            </span>
             </Link>
 
             <div className="flex items-center gap-2">
@@ -91,19 +115,26 @@ export default function Home() {
         </nav>
 
         {/* Hero */}
-        <header className="mx-auto max-w-7xl px-4 pb-16 pt-14 sm:px-6 lg:px-8 lg:pb-24 lg:pt-20">
+        <header className="mx-auto max-w-7xl px-4 pb-14 pt-12 sm:px-6 lg:px-8 lg:pb-24 lg:pt-20">
           <div className="grid items-center gap-10 lg:grid-cols-2">
             <div className="space-y-6">
-              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm text-muted-foreground shadow-sm">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-3 py-1 text-sm text-muted-foreground shadow-sm backdrop-blur">
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <CheckCircle2 className="h-4 w-4" />
               </span>
                 Attendance + Teams + Analytics — in one platform
+                <span className="ml-1 inline-flex items-center text-primary">
+                <ChevronRight className="h-4 w-4" />
+              </span>
               </div>
 
+              {/* Heading */}
               <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">
                 Employee Attendance
-                <span className="block text-primary">Made Simple</span>
+                <span className="block bg-gradient-to-r from-primary to-blue-500 bg-clip-text text-transparent">
+                Made Simple
+              </span>
               </h1>
 
               <p className="max-w-xl text-pretty text-base text-muted-foreground sm:text-lg">
@@ -134,10 +165,16 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Hero card */}
+            {/* Hero card (glass + shine) */}
             <div className="relative">
-              <Card className="relative overflow-hidden rounded-3xl border-border bg-card p-6 shadow-sm">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-blue-500/10" />
+              <Card className="relative overflow-hidden rounded-3xl border-border bg-card/70 p-6 shadow-sm backdrop-blur-xl">
+                {/* shine */}
+                <div className="pointer-events-none absolute inset-0">
+                  <div className="absolute -left-24 -top-24 h-64 w-64 rounded-full bg-primary/20 blur-3xl" />
+                  <div className="absolute -right-24 -bottom-24 h-64 w-64 rounded-full bg-blue-500/15 blur-3xl" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-blue-500/10" />
+                  <div className="absolute inset-0 opacity-0 transition-opacity duration-300 hover:opacity-100" />
+                </div>
 
                 <div className="relative space-y-6">
                   <div className="flex items-center justify-between">
@@ -151,24 +188,24 @@ export default function Home() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
-                    <Card className="rounded-2xl border-border bg-background p-4">
+                    <Card className="rounded-2xl border-border bg-background/70 p-4 backdrop-blur">
                       <p className="text-sm text-muted-foreground">Present</p>
                       <p className="mt-2 text-3xl font-bold">42</p>
                       <p className="mt-1 text-xs text-muted-foreground">+6 since 9:00</p>
                     </Card>
-                    <Card className="rounded-2xl border-border bg-background p-4">
+                    <Card className="rounded-2xl border-border bg-background/70 p-4 backdrop-blur">
                       <p className="text-sm text-muted-foreground">Late</p>
                       <p className="mt-2 text-3xl font-bold">3</p>
                       <p className="mt-1 text-xs text-muted-foreground">-1 vs yesterday</p>
                     </Card>
-                    <Card className="rounded-2xl border-border bg-background p-4">
+                    <Card className="rounded-2xl border-border bg-background/70 p-4 backdrop-blur">
                       <p className="text-sm text-muted-foreground">Remote</p>
                       <p className="mt-2 text-3xl font-bold">9</p>
                       <p className="mt-1 text-xs text-muted-foreground">stable</p>
                     </Card>
                   </div>
 
-                  <Card className="rounded-2xl border-border bg-background p-4">
+                  <Card className="rounded-2xl border-border bg-background/70 p-4 backdrop-blur">
                     <div className="flex items-center justify-between">
                       <p className="text-sm font-medium">Security</p>
                       <span className="text-xs text-muted-foreground">JWT + sessions</span>
@@ -200,7 +237,10 @@ export default function Home() {
               { label: 'Uptime', value: '99.9%' },
               { label: 'Support', value: '24/7' },
             ].map((s) => (
-                <Card key={s.label} className="rounded-3xl border-border bg-card p-6 shadow-sm">
+                <Card
+                    key={s.label}
+                    className="rounded-3xl border-border bg-card/70 p-6 shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:shadow-md"
+                >
                   <p className="text-sm text-muted-foreground">{s.label}</p>
                   <p className="mt-2 text-4xl font-bold text-primary">{s.value}</p>
                   <p className="mt-1 text-sm text-muted-foreground">Reliable, secure, modern</p>
@@ -224,17 +264,20 @@ export default function Home() {
               return (
                   <Card
                       key={i}
-                      className="group rounded-3xl border-border bg-card p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                      className="group relative overflow-hidden rounded-3xl border-border bg-card/70 p-6 shadow-sm backdrop-blur transition-all hover:-translate-y-0.5 hover:shadow-md"
                   >
-                    <div className="flex items-start gap-4">
+                    <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                      <div className="absolute -left-16 -top-16 h-40 w-40 rounded-full bg-primary/10 blur-2xl" />
+                      <div className="absolute -right-16 -bottom-16 h-40 w-40 rounded-full bg-blue-500/10 blur-2xl" />
+                    </div>
+
+                    <div className="relative flex items-start gap-4">
                       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                         <Icon className="h-6 w-6" />
                       </div>
                       <div className="space-y-2">
                         <h3 className="text-lg font-semibold">{feature.title}</h3>
-                        <p className="text-sm leading-relaxed text-muted-foreground">
-                          {feature.description}
-                        </p>
+                        <p className="text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
                       </div>
                     </div>
                   </Card>
@@ -243,11 +286,49 @@ export default function Home() {
           </div>
         </section>
 
+        {/* How it works */}
+        <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:px-8">
+          <Card className="rounded-[2rem] border-border bg-card/70 p-8 backdrop-blur-xl sm:p-10">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h3 className="text-2xl font-bold tracking-tight sm:text-3xl">How it works</h3>
+                <p className="mt-2 text-muted-foreground">
+                  Start in minutes — no complex setup. Works perfectly with your API-first backend.
+                </p>
+              </div>
+              <Link href="/auth/register" className="mt-4 sm:mt-0">
+                <Button variant="outline" className="gap-2">
+                  Create workspace <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              {steps.map((s) => {
+                const Icon = s.icon;
+                return (
+                    <Card key={s.title} className="rounded-3xl border-border bg-background/70 p-6 backdrop-blur">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-semibold">{s.title}</p>
+                          <p className="mt-1 text-sm text-muted-foreground">{s.desc}</p>
+                        </div>
+                      </div>
+                    </Card>
+                );
+              })}
+            </div>
+          </Card>
+        </section>
+
         {/* CTA */}
         <section className="px-4 pb-16 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-7xl">
             <Card className="relative overflow-hidden rounded-[2rem] border-border bg-primary p-10 text-primary-foreground shadow-sm">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/10" />
+              <div className="absolute inset-0 bg-gradient-to-br from-white/12 via-transparent to-black/10" />
               <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
                 <div className="space-y-2">
                   <h3 className="text-3xl font-bold">Ready to Get Started?</h3>
@@ -282,7 +363,7 @@ export default function Home() {
             <div className="grid gap-10 md:grid-cols-4">
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <Sparkles className="h-5 w-5" />
                 </span>
                   <span className="text-lg font-semibold">TimeChamp</span>
@@ -293,18 +374,9 @@ export default function Home() {
               </div>
 
               {[
-                {
-                  title: 'Product',
-                  links: ['Features', 'Pricing', 'Security'],
-                },
-                {
-                  title: 'Company',
-                  links: ['About', 'Blog', 'Contact'],
-                },
-                {
-                  title: 'Legal',
-                  links: ['Privacy', 'Terms', 'Compliance'],
-                },
+                { title: 'Product', links: ['Features', 'Pricing', 'Security'] },
+                { title: 'Company', links: ['About', 'Blog', 'Contact'] },
+                { title: 'Legal', links: ['Privacy', 'Terms', 'Compliance'] },
               ].map((col) => (
                   <div key={col.title}>
                     <h4 className="font-semibold">{col.title}</h4>
@@ -322,9 +394,7 @@ export default function Home() {
             </div>
 
             <div className="mt-10 flex flex-col gap-4 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
-                © 2026 TimeChamp. All rights reserved.
-              </p>
+              <p className="text-sm text-muted-foreground">© 2026 TimeChamp. All rights reserved.</p>
               <div className="flex gap-4 text-sm text-muted-foreground">
                 <a href="#" className="hover:text-foreground">
                   Twitter
