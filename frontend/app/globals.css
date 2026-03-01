@@ -3,108 +3,164 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* =========================================================
+   Premium HEX Theme (shadcn compatible)
+   - softer background + subtle gradients
+   - better card/popover separation
+   - modern blue primary
+   - improved dark mode contrast
+   ========================================================= */
+
 :root {
-  --background: #ffffff;
-  --foreground: #111827;
+  /* Base */
+  --background: #f7f8fb;
+  --foreground: #0f172a;
+
+  /* Surfaces */
   --card: #ffffff;
-  --card-foreground: #111827;
+  --card-foreground: #0f172a;
   --popover: #ffffff;
-  --popover-foreground: #111827;
+  --popover-foreground: #0f172a;
+
+  /* Brand */
   --primary: #2563eb;
   --primary-foreground: #ffffff;
-  --secondary: #f7f8fa;
-  --secondary-foreground: #111827;
-  --muted: #f3f4f6;
-  --muted-foreground: #6b7280;
-  --accent: #2563eb;
+
+  /* Neutral */
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+
+  --muted: #eef2f7;
+  --muted-foreground: #64748b;
+
+  --accent: #1d4ed8;
   --accent-foreground: #ffffff;
+
+  /* Feedback */
   --destructive: #ef4444;
   --destructive-foreground: #ffffff;
-  --border: #e5e7eb;
-  --input: #f9fafb;
-  --ring: #2563eb;
+
+  /* Borders / Inputs / Focus */
+  --border: #e6eaf0;
+  --input: #ffffff;
+  --ring: #3b82f6;
+
+  /* Charts */
   --chart-1: #2563eb;
-  --chart-2: #3b82f6;
-  --chart-3: #60a5fa;
-  --chart-4: #93c5fd;
-  --chart-5: #bfdbfe;
-  --radius: 0.875rem;
+  --chart-2: #0ea5e9;
+  --chart-3: #22c55e;
+  --chart-4: #f59e0b;
+  --chart-5: #a855f7;
+
+  /* Radius */
+  --radius: 1rem;
+
+  /* Sidebar */
   --sidebar: #ffffff;
-  --sidebar-foreground: #111827;
+  --sidebar-foreground: #0f172a;
   --sidebar-primary: #2563eb;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f3f4f6;
-  --sidebar-accent-foreground: #111827;
-  --sidebar-border: #e5e7eb;
-  --sidebar-ring: #2563eb;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e6eaf0;
+  --sidebar-ring: #3b82f6;
 }
 
 .dark {
-  --background: #0f1419;
-  --foreground: #f9fafb;
-  --card: #1a1f2e;
-  --card-foreground: #f9fafb;
-  --popover: #1a1f2e;
-  --popover-foreground: #f9fafb;
-  --primary: #3b82f6;
-  --primary-foreground: #ffffff;
-  --secondary: #1f2937;
-  --secondary-foreground: #f9fafb;
-  --muted: #374151;
-  --muted-foreground: #9ca3af;
+  /* Base */
+  --background: #0b1220;
+  --foreground: #e5e7eb;
+
+  /* Surfaces */
+  --card: #0f172a;
+  --card-foreground: #e5e7eb;
+  --popover: #0f172a;
+  --popover-foreground: #e5e7eb;
+
+  /* Brand */
+  --primary: #60a5fa;
+  --primary-foreground: #0b1220;
+
+  /* Neutral */
+  --secondary: #111c33;
+  --secondary-foreground: #e5e7eb;
+
+  --muted: #0f1b31;
+  --muted-foreground: #9aa4b2;
+
   --accent: #3b82f6;
-  --accent-foreground: #ffffff;
-  --destructive: #f87171;
-  --destructive-foreground: #ffffff;
-  --border: #374151;
-  --input: #1f2937;
-  --ring: #3b82f6;
-  --chart-1: #3b82f6;
-  --chart-2: #60a5fa;
-  --chart-3: #93c5fd;
-  --chart-4: #bfdbfe;
-  --chart-5: #dbeafe;
-  --sidebar: #1a1f2e;
-  --sidebar-foreground: #f9fafb;
-  --sidebar-primary: #3b82f6;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #374151;
-  --sidebar-accent-foreground: #f9fafb;
-  --sidebar-border: #374151;
-  --sidebar-ring: #3b82f6;
+  --accent-foreground: #0b1220;
+
+  /* Feedback */
+  --destructive: #fb7185;
+  --destructive-foreground: #0b1220;
+
+  /* Borders / Inputs / Focus */
+  --border: #1c2a4a;
+  --input: #0f1b31;
+  --ring: #60a5fa;
+
+  /* Charts */
+  --chart-1: #60a5fa;
+  --chart-2: #38bdf8;
+  --chart-3: #4ade80;
+  --chart-4: #fbbf24;
+  --chart-5: #c084fc;
+
+  /* Sidebar */
+  --sidebar: #0f172a;
+  --sidebar-foreground: #e5e7eb;
+  --sidebar-primary: #60a5fa;
+  --sidebar-primary-foreground: #0b1220;
+  --sidebar-accent: #111c33;
+  --sidebar-accent-foreground: #e5e7eb;
+  --sidebar-border: #1c2a4a;
+  --sidebar-ring: #60a5fa;
 }
 
 @theme inline {
   --font-sans: 'Geist', 'Geist Fallback';
   --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
+
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 3px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 6px);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -119,7 +175,24 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    /* premium subtle gradient */
+    background-image:
+            radial-gradient(900px 500px at 15% -10%, rgba(37, 99, 235, 0.10), transparent 60%),
+            radial-gradient(900px 500px at 85% 0%, rgba(14, 165, 233, 0.08), transparent 60%),
+            radial-gradient(900px 500px at 50% 110%, rgba(34, 197, 94, 0.06), transparent 60%);
+  }
+
+  .dark body {
+    background-image:
+            radial-gradient(900px 500px at 15% -10%, rgba(96, 165, 250, 0.18), transparent 60%),
+            radial-gradient(900px 500px at 85% 0%, rgba(56, 189, 248, 0.10), transparent 60%),
+            radial-gradient(900px 500px at 50% 110%, rgba(74, 222, 128, 0.08), transparent 60%);
+  }
+
+  ::selection {
+    background: rgba(59, 130, 246, 0.25);
   }
 }

@@ -29,15 +29,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
 
     @Override
-    protected boolean shouldNotFilter(HttpServletRequest req) {
-        String path = req.getRequestURI();
-        if (HttpMethod.OPTIONS.matches(req.getMethod())) return true;
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
 
-        return path.startsWith("/swagger-ui")
-                || path.equals("/swagger-ui.html")
-                || path.startsWith("/v3/api-docs")
-                || path.startsWith("/actuator")
-                || path.equals("/error");
+        // public auth endpoints
+        if (path.startsWith("/api/auth/")) {
+            return path.equals("/api/auth/login")
+                    || path.equals("/api/auth/register")
+                    || path.equals("/api/auth/refresh");
+        }
+
+        return "OPTIONS".equalsIgnoreCase(request.getMethod());
     }
 
     @Override
