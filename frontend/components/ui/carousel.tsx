@@ -1,241 +1,372 @@
-'use client'
+// lib/api.ts
 
-import * as React from 'react'
-import useEmblaCarousel, {
-  type UseEmblaCarouselType,
-} from 'embla-carousel-react'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
-
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-
-type CarouselApi = UseEmblaCarouselType[1]
-type UseCarouselParameters = Parameters<typeof useEmblaCarousel>
-type CarouselOptions = UseCarouselParameters[0]
-type CarouselPlugin = UseCarouselParameters[1]
-
-type CarouselProps = {
-  opts?: CarouselOptions
-  plugins?: CarouselPlugin
-  orientation?: 'horizontal' | 'vertical'
-  setApi?: (api: CarouselApi) => void
+export interface ApiConfig {
+  baseUrl: string;
+  authBaseUrl?: string;
+  timeout?: number;
 }
 
-type CarouselContextProps = {
-  carouselRef: ReturnType<typeof useEmblaCarousel>[0]
-  api: ReturnType<typeof useEmblaCarousel>[1]
-  scrollPrev: () => void
-  scrollNext: () => void
-  canScrollPrev: boolean
-  canScrollNext: boolean
-} & CarouselProps
+export interface RequestOptions extends RequestInit {
+  params?: Record<string, any>;
+  _retry?: boolean;
+}
 
-const CarouselContext = React.createContext<CarouselContextProps | null>(null)
+function isBrowser() {
+  return typeof window !== "undefined";
+}
 
-function useCarousel() {
-  const context = React.useContext(CarouselContext)
+function safeGetSession(key: string) {
+  if (!isBrowser()) return null;
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
 
-  if (!context) {
-    throw new Error('useCarousel must be used within a <Carousel />')
+function safeSetSession(key: string, value: string) {
+  if (!isBrowser()) return;
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {}
+}
+
+function safeRemoveSession(key: string) {
+  if (!isBrowser()) return;
+  try {
+    sessionStorage.removeItem(key);
+  } catch {}
+}
+
+function safeGetLocal(key: string) {
+  if (!isBrowser()) return null;
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeSetLocal(key: string, value: string) {
+  if (!isBrowser()) return;
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+}
+
+function safeRemoveLocal(key: string) {
+  if (!isBrowser()) return;
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+
+function genId() {
+  // crypto.randomUUID() works in modern browsers
+  if (isBrowser() && typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return (crypto as any).randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function getOrCreateLocalId(key: string) {
+  const existing = safeGetLocal(key);
+  if (existing) return existing;
+  const v = genId();
+  safeSetLocal(key, v);
+  return v;
+}
+
+function normalizeBaseUrl(url: string) {
+  return (url || "").replace(/\/+$/, "");
+}
+
+function buildQuery(params?: Record<string, any>) {
+  if (!params) return "";
+  const entries = Object.entries(params).filter(
+      ([, v]) => v !== null && v !== undefined
+  );
+  if (entries.length === 0) return "";
+  const qs = new URLSearchParams(
+      entries.reduce((acc, [k, v]) => {
+        acc[k] = String(v);
+        return acc;
+      }, {} as Record<string, string>)
+  ).toString();
+  return qs ? `?${qs}` : "";
+}
+
+function isFormDataBody(body: any) {
+  return typeof FormData !== "undefined" && body instanceof FormData;
+}
+
+export class ApiClient {
+  private baseUrl: string;
+  private authBaseUrl: string;
+  private timeout: number;
+
+  private accessToken: string | null = null;
+  private refreshToken: string | null = null;
+  private sessionId: string | null = null;
+
+  // ✅ stable device id (Swagger header: X-Device)
+  private deviceId: string | null = null;
+
+  constructor(config: ApiConfig) {
+    this.baseUrl = normalizeBaseUrl(config.baseUrl);
+    this.authBaseUrl = normalizeBaseUrl(config.authBaseUrl || config.baseUrl);
+    this.timeout = config.timeout ?? 30000;
+    this.loadState();
   }
 
-  return context
-}
+  private loadState() {
+    // Always safe: in SSR this does nothing
+    this.accessToken = safeGetSession("accessToken");
+    this.refreshToken = safeGetLocal("refreshToken");
+    this.sessionId = safeGetSession("sessionId");
+    this.deviceId = safeGetLocal("deviceId") || getOrCreateLocalId("deviceId");
+  }
 
-function Carousel({
-  orientation = 'horizontal',
-  opts,
-  setApi,
-  plugins,
-  className,
-  children,
-  ...props
-}: React.ComponentProps<'div'> & CarouselProps) {
-  const [carouselRef, api] = useEmblaCarousel(
-    {
-      ...opts,
-      axis: orientation === 'horizontal' ? 'x' : 'y',
-    },
-    plugins,
-  )
-  const [canScrollPrev, setCanScrollPrev] = React.useState(false)
-  const [canScrollNext, setCanScrollNext] = React.useState(false)
+  // -----------------------
+  // Public helpers
+  // -----------------------
 
-  const onSelect = React.useCallback((api: CarouselApi) => {
-    if (!api) return
-    setCanScrollPrev(api.canScrollPrev())
-    setCanScrollNext(api.canScrollNext())
-  }, [])
+  getSessionId() {
+    this.loadState();
+    return this.sessionId;
+  }
 
-  const scrollPrev = React.useCallback(() => {
-    api?.scrollPrev()
-  }, [api])
+  getDeviceId() {
+    this.loadState();
+    return this.deviceId;
+  }
 
-  const scrollNext = React.useCallback(() => {
-    api?.scrollNext()
-  }, [api])
+  setDeviceId(deviceId: string) {
+    this.deviceId = deviceId;
+    safeSetLocal("deviceId", deviceId);
+  }
 
-  const handleKeyDown = React.useCallback(
-    (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault()
-        scrollPrev()
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault()
-        scrollNext()
-      }
-    },
-    [scrollPrev, scrollNext],
-  )
+  setTokens(accessToken: string, refreshToken: string, sessionId?: string) {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+    if (sessionId) this.sessionId = sessionId;
 
-  React.useEffect(() => {
-    if (!api || !setApi) return
-    setApi(api)
-  }, [api, setApi])
+    safeSetSession("accessToken", accessToken);
+    safeSetLocal("refreshToken", refreshToken);
+    if (sessionId) safeSetSession("sessionId", sessionId);
+  }
 
-  React.useEffect(() => {
-    if (!api) return
-    onSelect(api)
-    api.on('reInit', onSelect)
-    api.on('select', onSelect)
+  setSessionId(sessionId: string) {
+    this.sessionId = sessionId;
+    safeSetSession("sessionId", sessionId);
+  }
 
-    return () => {
-      api?.off('select', onSelect)
+  clearTokens() {
+    this.accessToken = null;
+    this.refreshToken = null;
+    this.sessionId = null;
+
+    safeRemoveSession("accessToken");
+    safeRemoveLocal("refreshToken");
+    safeRemoveSession("sessionId");
+  }
+
+  // -----------------------
+  // Internals
+  // -----------------------
+
+  private buildUrl(endpoint: string, params?: Record<string, any>) {
+    const ep = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    return `${this.baseUrl}${ep}${buildQuery(params)}`;
+  }
+
+  private buildHeaders(options?: RequestOptions): HeadersInit {
+    this.loadState();
+
+    const headers: Record<string, string> = {
+      ...(options?.headers as Record<string, string> | undefined),
+    };
+
+    const body = options?.body as any;
+    const isForm = isFormDataBody(body);
+
+    // Content-Type
+    if (!isForm && !headers["Content-Type"] && !headers["content-type"]) {
+      headers["Content-Type"] = "application/json";
     }
-  }, [api, onSelect])
 
-  return (
-    <CarouselContext.Provider
-      value={{
-        carouselRef,
-        api: api,
-        opts,
-        orientation:
-          orientation || (opts?.axis === 'y' ? 'vertical' : 'horizontal'),
-        scrollPrev,
-        scrollNext,
-        canScrollPrev,
-        canScrollNext,
-      }}
-    >
-      <div
-        onKeyDownCapture={handleKeyDown}
-        className={cn('relative', className)}
-        role="region"
-        aria-roledescription="carousel"
-        data-slot="carousel"
-        {...props}
-      >
-        {children}
-      </div>
-    </CarouselContext.Provider>
-  )
+    // ✅ X-Device
+    if (!headers["X-Device"]) {
+      const did = this.deviceId || getOrCreateLocalId("deviceId") || "web";
+      headers["X-Device"] = did;
+      this.deviceId = did;
+    }
+
+    // Authorization
+    if (this.accessToken && !headers["Authorization"]) {
+      headers["Authorization"] = `Bearer ${this.accessToken}`;
+    }
+
+    return headers;
+  }
+
+  private async parseBody(response: Response) {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) return response.json();
+    return response.text();
+  }
+
+  private errorMessageFrom(data: any): string {
+    if (!data) return "API Error";
+    if (typeof data === "string") return data;
+
+    if (typeof data === "object") {
+      const msg = (data as any)?.message || (data as any)?.error;
+      if (typeof msg === "string" && msg.trim()) return msg;
+      try {
+        return JSON.stringify(data);
+      } catch {
+        return "API Error";
+      }
+    }
+
+    return String(data);
+  }
+
+  private async refreshAccessToken(): Promise<void> {
+    this.loadState();
+
+    if (!this.refreshToken) throw new Error("No refresh token available");
+    if (!this.sessionId) throw new Error("No sessionId available (login again)");
+
+    const response = await fetch(`${this.authBaseUrl}/api/auth/refresh`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Device": this.deviceId || getOrCreateLocalId("deviceId") || "web",
+      },
+      body: JSON.stringify({
+        refreshToken: this.refreshToken,
+        sessionId: this.sessionId,
+      }),
+      mode: "cors",
+      credentials: "include",
+    });
+
+    const data = await this.parseBody(response);
+
+    if (!response.ok) {
+      this.clearTokens();
+      throw new Error(this.errorMessageFrom(data) || "Failed to refresh token");
+    }
+
+    if ((data as any)?.accessToken && (data as any)?.refreshToken) {
+      const sid = (data as any)?.sessionId || this.sessionId;
+      this.setTokens((data as any).accessToken, (data as any).refreshToken, sid);
+      return;
+    }
+
+    this.clearTokens();
+    throw new Error("Refresh succeeded but tokens were not returned");
+  }
+
+  async request<T = any>(endpoint: string, options?: RequestOptions): Promise<T> {
+    const url = this.buildUrl(endpoint, options?.params);
+    const headers = this.buildHeaders(options);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+        mode: "cors",
+        credentials: "include",
+        signal: controller.signal,
+      });
+
+      const data = await this.parseBody(response);
+
+      if (!response.ok) {
+        // ✅ refresh only when we have both refreshToken + sessionId
+        if (
+            response.status === 401 &&
+            this.refreshToken &&
+            this.sessionId &&
+            !options?._retry
+        ) {
+          await this.refreshAccessToken();
+          return this.request<T>(endpoint, { ...options, _retry: true });
+        }
+
+        const err: any = new Error(this.errorMessageFrom(data));
+        err.status = response.status;
+        err.data = data;
+        throw err;
+      }
+
+      return data as T;
+    } catch (error: any) {
+      if (error?.name === "AbortError") throw new Error("Request timeout");
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  get<T = any>(endpoint: string, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, { ...options, method: "GET" });
+  }
+
+  post<T = any>(endpoint: string, body?: any, options?: RequestOptions): Promise<T> {
+    const isForm = isFormDataBody(body);
+    return this.request<T>(endpoint, {
+      ...options,
+      method: "POST",
+      body: body === undefined || body === null ? undefined : isForm ? body : JSON.stringify(body),
+    });
+  }
+
+  put<T = any>(endpoint: string, body?: any, options?: RequestOptions): Promise<T> {
+    const isForm = isFormDataBody(body);
+    return this.request<T>(endpoint, {
+      ...options,
+      method: "PUT",
+      body: body === undefined || body === null ? undefined : isForm ? body : JSON.stringify(body),
+    });
+  }
+
+  patch<T = any>(endpoint: string, body?: any, options?: RequestOptions): Promise<T> {
+    const isForm = isFormDataBody(body);
+    return this.request<T>(endpoint, {
+      ...options,
+      method: "PATCH",
+      body: body === undefined || body === null ? undefined : isForm ? body : JSON.stringify(body),
+    });
+  }
+
+  delete<T = any>(endpoint: string, options?: RequestOptions): Promise<T> {
+    return this.request<T>(endpoint, { ...options, method: "DELETE" });
+  }
 }
 
-function CarouselContent({ className, ...props }: React.ComponentProps<'div'>) {
-  const { carouselRef, orientation } = useCarousel()
+const AUTH_BASE = process.env.NEXT_PUBLIC_AUTH_API_URL || "http://localhost:8081";
 
-  return (
-    <div
-      ref={carouselRef}
-      className="overflow-hidden"
-      data-slot="carousel-content"
-    >
-      <div
-        className={cn(
-          'flex',
-          orientation === 'horizontal' ? '-ml-4' : '-mt-4 flex-col',
-          className,
-        )}
-        {...props}
-      />
-    </div>
-  )
-}
+export const authClient = new ApiClient({
+  baseUrl: AUTH_BASE,
+  authBaseUrl: AUTH_BASE,
+  timeout: 30000,
+});
 
-function CarouselItem({ className, ...props }: React.ComponentProps<'div'>) {
-  const { orientation } = useCarousel()
+export const userClient = new ApiClient({
+  baseUrl: process.env.NEXT_PUBLIC_USER_API_URL || AUTH_BASE,
+  authBaseUrl: AUTH_BASE,
+  timeout: 30000,
+});
 
-  return (
-    <div
-      role="group"
-      aria-roledescription="slide"
-      data-slot="carousel-item"
-      className={cn(
-        'min-w-0 shrink-0 grow-0 basis-full',
-        orientation === 'horizontal' ? 'pl-4' : 'pt-4',
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-function CarouselPrevious({
-  className,
-  variant = 'outline',
-  size = 'icon',
-  ...props
-}: React.ComponentProps<typeof Button>) {
-  const { orientation, scrollPrev, canScrollPrev } = useCarousel()
-
-  return (
-    <Button
-      data-slot="carousel-previous"
-      variant={variant}
-      size={size}
-      className={cn(
-        'absolute size-8 rounded-full',
-        orientation === 'horizontal'
-          ? 'top-1/2 -left-12 -translate-y-1/2'
-          : '-top-12 left-1/2 -translate-x-1/2 rotate-90',
-        className,
-      )}
-      disabled={!canScrollPrev}
-      onClick={scrollPrev}
-      {...props}
-    >
-      <ArrowLeft />
-      <span className="sr-only">Previous slide</span>
-    </Button>
-  )
-}
-
-function CarouselNext({
-  className,
-  variant = 'outline',
-  size = 'icon',
-  ...props
-}: React.ComponentProps<typeof Button>) {
-  const { orientation, scrollNext, canScrollNext } = useCarousel()
-
-  return (
-    <Button
-      data-slot="carousel-next"
-      variant={variant}
-      size={size}
-      className={cn(
-        'absolute size-8 rounded-full',
-        orientation === 'horizontal'
-          ? 'top-1/2 -right-12 -translate-y-1/2'
-          : '-bottom-12 left-1/2 -translate-x-1/2 rotate-90',
-        className,
-      )}
-      disabled={!canScrollNext}
-      onClick={scrollNext}
-      {...props}
-    >
-      <ArrowRight />
-      <span className="sr-only">Next slide</span>
-    </Button>
-  )
-}
-
-export {
-  type CarouselApi,
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselPrevious,
-  CarouselNext,
-}
+export const attendanceClient = new ApiClient({
+  baseUrl: process.env.NEXT_PUBLIC_ATTENDANCE_API_URL || "http://localhost:8082",
+  authBaseUrl: AUTH_BASE,
+  timeout: 30000,
+});

@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { LogOut, Settings, User } from 'lucide-react';
-import { authClient } from '@/lib/api-client';
+import {attendanceClient, authClient, userClient} from '@/lib/api-client';
 
 interface DashboardTopbarProps {
   user?: {
@@ -27,11 +27,13 @@ export function DashboardTopbar({ user }: DashboardTopbarProps) {
 
   const handleLogout = async () => {
     try {
-      await authClient.post('/auth/logout');
+      await authClient.post('/api/auth/logout'); // ✅ вот так
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
       authClient.clearTokens();
+      userClient.clearTokens();
+      attendanceClient.clearTokens();
       router.push('/auth/login');
     }
   };

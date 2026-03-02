@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Lock, User, Bell, Shield, AlertCircle, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { authClient, userClient } from '@/lib/api-client';
+import {attendanceClient, authClient, userClient} from '@/lib/api-client';
 import { useRouter } from 'next/navigation';
 
 type UserProfile = {
@@ -142,6 +142,7 @@ export default function SettingsPage() {
     } catch {}
     authClient.clearTokens();
     userClient.clearTokens();
+    attendanceClient.clearTokens();
     router.replace('/auth/login');
   };
 
