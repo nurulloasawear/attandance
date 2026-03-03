@@ -23,7 +23,6 @@ public class GroupIdGeneratorImpl implements GroupIdGenerator {
             String id = "GRP-" + uniqueDigits(6);
             if (!groupRepository.existsByGroupPublicId(id)) return id;
         }
-        // если вдруг коллизии (очень редко), увеличим цифры
         for (int attempt = 0; attempt < 50; attempt++) {
             String id = "GRP-" + uniqueDigits(7);
             if (!groupRepository.existsByGroupPublicId(id)) return id;
@@ -35,7 +34,6 @@ public class GroupIdGeneratorImpl implements GroupIdGenerator {
         List<Integer> digits = new ArrayList<>();
         for (int i = 0; i <= 9; i++) digits.add(i);
         Collections.shuffle(digits, rnd);
-
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < n; i++) sb.append(digits.get(i));
         return sb.toString();

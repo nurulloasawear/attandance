@@ -35,7 +35,8 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
-          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.42/lombok-1.18.42.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/mapstruct/mapstruct-processor/1.5.5.Final/mapstruct-processor-1.5.5.Final.jar" />
         </processorPath>
         <module name="group-service" />
       </profile>
@@ -52,7 +53,7 @@
       <module name="common-lib" options="-parameters -parameters" />
       <module name="gateway" options="-parameters -parameters" />
       <module name="gateway-service" options="-parameters" />
-      <module name="group-service" options="-parameters" />
+      <module name="group-service" options="-parameters -parameters" />
       <module name="java" options="-parameters" />
       <module name="user-service" options="-parameters -parameters" />
     </option>

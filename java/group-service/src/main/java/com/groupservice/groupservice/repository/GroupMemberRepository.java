@@ -8,8 +8,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface GroupMemberRepository extends JpaRepository<GroupMember, UUID> {
+    List<GroupMember> findAllByGroup_GroupPublicIdOrderByJoinedAtAsc(String groupPublicId);
     Optional<GroupMember> findByUserPublicId(String userPublicId);
-    List<GroupMember> findAllByGroup_Id(UUID groupId);
-    long countByGroup_Id(UUID groupId);
-    void deleteByGroup_IdAndUserPublicId(UUID groupId, String userPublicId);
+    void deleteByUserPublicId(String userPublicId);
+    void deleteByGroup_GroupPublicIdAndUserPublicId(String groupPublicId, String userPublicId);
 }

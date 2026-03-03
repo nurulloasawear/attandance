@@ -3,12 +3,11 @@ package com.groupservice.groupservice.service.impl;
 import com.groupservice.groupservice.dto.GroupCreateRequest;
 import com.groupservice.groupservice.dto.GroupResponse;
 import com.groupservice.groupservice.dto.GroupUpdateRequest;
-import com.groupservice.groupservice.dto.MemberResponse;
+import com.groupservice.groupservice.mapper.GroupMapper;
 import com.groupservice.groupservice.model.Group;
-import com.groupservice.groupservice.repository.GroupMemberRepository;
 import com.groupservice.groupservice.repository.GroupRepository;
+import com.groupservice.groupservice.service.GroupIdGenerator;
 import com.groupservice.groupservice.service.GroupService;
-import com.groupservice.groupservice.service.PublicGroupIdGenerator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -23,8 +22,8 @@ import java.util.List;
 public class GroupServiceImpl implements GroupService {
 
     private final GroupRepository groupRepo;
-    private final GroupMemberRepository memberRepo;
-    private final PublicGroupIdGenerator idGen;
+    private final GroupIdGenerator idGen;
+    private final GroupMapper mapper;
 
     @Override
     @Transactional
@@ -43,23 +42,22 @@ public class GroupServiceImpl implements GroupService {
         try {
             groupRepo.save(g);
         } catch (DataIntegrityViolationException e) {
-            // ⚠️ если leader уже занят — упадёт на unique index
             throw new IllegalArgumentException("Leader already assigned to another group");
         }
 
-        return toResponse(g);
+        return mapper.toResponse(g);
     }
 
     @Override
     public GroupResponse get(String groupPublicId) {
         Group g = groupRepo.findByGroupPublicId(groupPublicId)
                 .orElseThrow(() -> new IllegalArgumentException("Group not found: " + groupPublicId));
-        return toResponse(g);
+        return mapper.toResponse(g);
     }
 
     @Override
     public List<GroupResponse> list() {
-        return groupRepo.findAll().stream().map(this::toResponse).toList();
+        return groupRepo.findAll().stream().map(mapper::toResponse).toList();
     }
 
     @Override
@@ -71,6 +69,7 @@ public class GroupServiceImpl implements GroupService {
         if (req.name() != null) g.setName(req.name().trim());
         if (req.department() != null) g.setDepartment(req.department().trim());
         if (req.leaderUserPublicId() != null) g.setLeaderUserPublicId(req.leaderUserPublicId().trim());
+        g.setUpdatedAt(Instant.now());
 
         try {
             groupRepo.save(g);
@@ -78,7 +77,7 @@ public class GroupServiceImpl implements GroupService {
             throw new IllegalArgumentException("Leader already assigned to another group");
         }
 
-        return toResponse(g);
+        return mapper.toResponse(g);
     }
 
     @Override
@@ -87,20 +86,5 @@ public class GroupServiceImpl implements GroupService {
         Group g = groupRepo.findByGroupPublicId(groupPublicId)
                 .orElseThrow(() -> new IllegalArgumentException("Group not found: " + groupPublicId));
         groupRepo.delete(g);
-    }
-
-    private GroupResponse toResponse(Group g) {
-        var members = memberRepo.findAllByGroup_GroupPublicIdOrderByJoinedAtAsc(g.getGroupPublicId())
-                .stream()
-                .map(m -> new MemberResponse(m.getUserPublicId()))
-                .toList();
-
-        return new GroupResponse(
-                g.getGroupPublicId(),
-                g.getName(),
-                g.getDepartment(),
-                g.getLeaderUserPublicId(),
-                members
-        );
     }
 }
